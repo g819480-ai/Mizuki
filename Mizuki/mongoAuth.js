@@ -6,7 +6,7 @@ const {
     initAuthCreds,
     BufferJSON,
     proto
-} = require('@whiskeysockets/baileys');
+} = await import('@whiskeysockets/baileys');
 
 /*
  * SCANTY MD BOT
@@ -210,10 +210,8 @@ async function useMongoDBAuthState() {
                 ) {
                     value =
                         proto.Message
-                            .AppStateSyncKeyData
-                            .fromObject(value);
-                }
-
+                     .AppStateSyncKeyData
+                     .create(value);
                 result[id] = value;
             }
 
