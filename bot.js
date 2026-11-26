@@ -478,7 +478,36 @@ var arg = args.join(' ');
                 config
             );
 
-            await events.emit('message', message);
+            for (const commandInfo of events.commands) {
+    try {
+        if (commandInfo.fromMe !== message.fromMe) continue;
+
+        const isGroup = message.jid?.endsWith('@g.us');
+
+        if (commandInfo.onlyGroup && !isGroup) continue;
+        if (commandInfo.onlyPm && isGroup) continue;
+
+        const messageType = Object.keys(message.data.message || {})[0];
+
+        if (commandInfo.on === 'image' && messageType !== 'imageMessage') continue;
+        if (commandInfo.on === 'photo' && messageType !== 'imageMessage') continue;
+        if (commandInfo.on === 'text' && !['conversation', 'extendedTextMessage'].includes(messageType)) continue;
+
+        let match = null;
+
+        if (commandInfo.pattern) {
+            match = message.message.match(commandInfo.pattern);
+            if (!match) continue;
+        } else if (commandInfo.on !== 'message') {
+            continue;
+        }
+
+        await commandInfo.function(message, match);
+
+    } catch (pluginError) {
+        console.error('Plugin command error:', pluginError);
+    }
+}
 
         } catch (error) {
             console.log(error);
