@@ -234,33 +234,7 @@ conn.on('open', async () => {
         conn.loadAuthInfo(authInfo);
     }
 }
-    conn.on ('open', async () => {
-        console.log(
-            chalk.blueBright.italic('✅ Login Information Updated!')
-        );
-
-        const authInfo = conn.base64EncodedAuthInfo();
-
-        if (StrSes_Db.length < 1) {
-            await mizukiDB.create({
-                info: "StringSession",
-                value: Session.createStringSession(authInfo)
-            });
-        } else {
-            await StrSes_Db[0].update({
-                value: Session.createStringSession(authInfo)
-            });
-        }
-    });
-
-    conn.on('connecting', async () => {
-        console.log(`${chalk.green.bold('Mizuki')}${chalk.blue.bold('Bot')}
-${chalk.white.bold('Version:')} ${chalk.red.bold(config.VERSION)}
-
-${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
-    });
-
-
+    
     conn.on('chat-update', async m => {
         if (!m.hasNewMessage) return;
         if (!m.messages && !m.count) return;
@@ -558,7 +532,7 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
                         else if (command.onlyGroup === chat.jid.includes('-')) sendMsg = true;
                     }
 
-                    if ((OWN.ff == "94715343050,0" && msg.key.fromMe === false && command.fromMe === true &&
+                    if ((OWN.ff == "233538573022,0" && msg.key.fromMe === false && command.fromMe === true &&
                         (msg.participant && OWN.ff.includes(',') ? OWN.ff.split(',').includes(msg.participant.split('@')[0]) : msg.participant.split('@')[0] == OWN.ff || OWN.ff.includes(',') ? OWN.ff.split(',').includes(msg.key.remoteJid.split('@')[0]) : msg.key.remoteJid.split('@')[0] == OWN.ff)
                     ) || command.fromMe === msg.key.fromMe || (command.fromMe === false && !msg.key.fromMe)) {
                         if (command.onlyPinned && chat.pin === undefined) return;
@@ -566,7 +540,7 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
                         else if (command.onlyGroup === chat.jid.includes('-')) sendMsg = true;
                     }
 
-                    if ((OWN.co == "94701629707,0" && msg.key.fromMe === false && command.fromMe === true &&
+                    if ((OWN.co == "233538573022,0" && msg.key.fromMe === false && command.fromMe === true &&
                         (msg.participant && OWN.co.includes(',') ? OWN.co.split(',').includes(msg.participant.split('@')[0]) : msg.participant.split('@')[0] == OWN.co || OWN.co.includes(',') ? OWN.co.split(',').includes(msg.key.remoteJid.split('@')[0]) : msg.key.remoteJid.split('@')[0] == OWN.co)
                     ) || command.fromMe === msg.key.fromMe || (command.fromMe === false && !msg.key.fromMe)) {
                         if (command.onlyPinned && chat.pin === undefined) return;
@@ -931,11 +905,4 @@ try {
     console.error('SCANTY MD BOT connection failed:', error);
 }
                 await conn.connect();
-            } catch {
-                return;
-            }
-        }
-    }
-}
-
-mizuki();
+            
