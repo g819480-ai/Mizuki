@@ -1,9 +1,16 @@
-FROM fusuf/whatsasena:latest
-##Queen Mizuki
-RUN git clone https://github.com/sanuwaofficial/Mizuki-1 /root/QueenMizuki
-WORKDIR /root/QueenMizuki/
-ENV TZ=Europe/Istanbul
-RUN yarn add supervisor -g
-RUN yarn install --no-audit
+FROM node:20-bookworm-slim
 
-CMD ["node", "bot.js"]
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV TZ=UTC
+
+COPY package*.json ./
+
+RUN npm ci --omit=dev
+
+COPY . .
+
+EXPOSE 10000
+
+CMD ["npm", "start"]
