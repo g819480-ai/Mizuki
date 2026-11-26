@@ -93,6 +93,11 @@ async function useMongoDBAuthState() {
                 const stored = new Map(
                     documents.map(doc => [doc.keyId, doc.value])
                 );
+                if (['session', 'lid-mapping', 'device-list', 'tctoken'].includes(type)) {
+    console.log(
+        `[MONGO AUTH READ] ${type}: requested=${ids.length}, found=${stored.size}, missing=${ids.length - stored.size}`
+    );
+}
 
                 const result = {};
 
@@ -114,7 +119,14 @@ async function useMongoDBAuthState() {
             set: async data => {
                 return queueWrite(async () => {
                     const operations = [];
-
+                   console.log(
+    '[MONGO AUTH WRITE]',
+    Object.entries(data || {})
+        .map(([category, values]) =>
+            `${category}:${Object.keys(values || {}).length}`
+        )
+        .join(', ')
+);
                     for (const category of Object.keys(data || {})) {
                         const categoryData = data[category];
 
