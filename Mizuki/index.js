@@ -1,16 +1,19 @@
-/* Copyright (C) 2020 Yusuf Usta. - Copyright (C) 2021 Mr.joka.
+/*
 
-Licensed under the  GPL-3.0 License;
-you may not use this file except in compliance with the License.
-
-Mizuki - Mr.joka
-*/
+* SCANTY MD BOT
+* Copyright (C) 2026 Scanty Ads
+* Licensed under the GNU General Public License v3.0.
+* You may redistribute and/or modify this file under the terms
+* of the GNU General Public License as published by the
+* Free Software Foundation, either version 3 of the License,
+* or any later version.
+    */
 
 module.exports = {
-    Base: require('./Base'),
-    Message: require('./Message'),
-    StringSession: require('./StringSession'),
-    ReplyMessage: require('./ReplyMessage'),
-    Image: require('./Image'),
-    Video: require('./Video')
+Base: require(’./Base’),
+Message: require(’./Message’),
+StringSession: require(’./StringSession’),
+ReplyMessage: require(’./ReplyMessage’),
+Image: require(’./Image’),
+Video: require(’./Video’)
 };
