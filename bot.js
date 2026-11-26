@@ -359,32 +359,46 @@ conn.on('status', async (statusMessage) => {
             return;
         }
 
-        var msgType = Object.keys(msg.message)[0];
+        if (!msg.message || typeof msg.message !== 'object') return;
 
-        if (msgType === 'conversation') {
-            var text = msg.message.conversation;
-        }
-        else if (msgType === 'extendedTextMessage') {
-            var text = msg.message.extendedTextMessage.text;
-        }
-        else if (msgType === 'imageMessage') {
-            var text = msg.message.imageMessage.caption;
-        }
-        else if (msgType === 'videoMessage') {
-            var text = msg.message.videoMessage.caption;
-        }
-        else {
-            var text = '';
-        }
+var msgType = Object.keys(msg.message)[0];
+var text = '';
 
-        if (text == undefined) return;
+if (msgType === 'conversation') {
+    text = msg.message.conversation || '';
+}
+else if (msgType === 'extendedTextMessage') {
+    text = msg.message.extendedTextMessage?.text || '';
+}
+else if (msgType === 'imageMessage') {
+    text = msg.message.imageMessage?.caption || '';
+}
+else if (msgType === 'videoMessage') {
+    text = msg.message.videoMessage?.caption || '';
+}
 
-        var isGroup = msg.key.remoteJid.endsWith('@g.us');
-        var isCmd = text.startsWith(config.HANDLERS);
-        var command = text.split(' ')[0].slice(config.HANDLERS.length);
-        var args = text.trim().split(' ').slice(1);
-        var arg = args.join(' ');
+if (typeof text !== 'string' || !text.trim()) return;
 
+var isGroup = msg.key.remoteJid.endsWith('@g.us');
+
+var handlerPattern;
+try {
+    handlerPattern = new RegExp(config.HANDLERS);
+} catch (error) {
+    console.error('Invalid HANDLERS pattern:', error.message);
+    return;
+}
+
+var prefixMatch = text.trim().match(handlerPattern);
+var isCmd = Boolean(prefixMatch);
+
+var commandText = isCmd
+    ? text.trim().slice(prefixMatch[0].length).trim()
+    : '';
+
+var command = commandText.split(/\s+/)[0].toLowerCase();
+var args = commandText.split(/\s+/).slice(1);
+var arg = args.join(' ');
         if (isCmd) {
             if (config.WORKTYPE == 'private') {
                 if (msg.key.fromMe) {
