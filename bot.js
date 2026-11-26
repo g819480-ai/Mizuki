@@ -215,14 +215,23 @@ async function mizuki () {
 
     conn.logger.level = config.DEBUG ? 'debug' : 'warn';
     var nodb;
+if (StrSes_Db.length < 1) {
+    nodb = true;
 
-    if (StrSes_Db.length < 1) {
-        nodb = true;
-        conn.loadAuthInfo(Session.deCrypt(config.SESSION)); 
-    } else {
-        conn.loadAuthInfo(Session.deCrypt(StrSes_Db[0].dataValues.value));
+    if (config.SESSION && config.SESSION.trim() !== '') {
+        const authInfo = Session.deCrypt(config.SESSION);
+
+        if (authInfo) {
+            conn.loadAuthInfo(authInfo);
+        }
     }
+} else {
+    const authInfo = Session.deCrypt(StrSes_Db[0].dataValues.value);
 
+    if (authInfo) {
+        conn.loadAuthInfo(authInfo);
+    }
+}
     conn.on ('open', async () => {
         console.log(
             chalk.blueBright.italic('✅ Login Information Updated!')
