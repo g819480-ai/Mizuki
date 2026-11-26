@@ -909,7 +909,7 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
                 }
             }
         )
-    });
+    
     // ==================== End Error Message ====================
 
     try {
