@@ -359,7 +359,9 @@ conn.on('status', async (statusMessage) => {
 
             return;
         }
-
+// SCANTY MD BOT - NATIVE COMMAND SYSTEM
+if (await handleMessage(conn, msg, config)) return;
+// END NATIVE COMMAND SYSTEM
         if (!msg.message || typeof msg.message !== 'object') return;
 
 var msgType = Object.keys(msg.message)[0];
