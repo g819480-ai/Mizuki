@@ -12,6 +12,7 @@ const path = require("path");
 const events = require("./events");
 const chalk = require('chalk');
 const config = require('./config');
+const { handleMessage } = require('./command-handler');
 const axios = require('axios');
 const { startQrServer } = require('./qr');
 const { LegacyClient, MessageType, Mimetype, Presence } = require('./Mizuki/LegacyClient');
