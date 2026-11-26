@@ -16,8 +16,7 @@
 
 const EventEmitter = require('events');
 const fs = require('fs');
-const pino = require(‘pino’);
-
+const pino = require('pino');
 const {
 default: makeWASocket,
 downloadMediaMessage,
