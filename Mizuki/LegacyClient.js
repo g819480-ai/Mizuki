@@ -837,23 +837,33 @@ async connect() {
                      *
                      * Keep that API unchanged.
                      */
-                    this.emit(
-                        'chat-update',
-                        {
-                            hasNewMessage:
-                                true,
-                            count:
-                                validMessages.length,
-                            messages: {
-                                all:
-                                    () =>
-                                        validMessages
-                            }
-                        }
-                    );
-                }
-            );
-            /*
+                    for (const validMessage of validMessages) {
+    const messageType = Object.keys(
+        validMessage.message || {}
+    )[0] || 'unknown';
+
+    console.log(
+        '[SCANTY INCOMING]',
+        'fromMe:',
+        Boolean(validMessage.key?.fromMe),
+        'chat:',
+        validMessage.key?.remoteJid || 'unknown',
+        'type:',
+        messageType
+    );
+
+    this.emit(
+        'chat-update',
+        {
+            hasNewMessage: true,
+            count: 1,
+            messages: {
+                all: () => [validMessage]
+            }
+        }
+    );
+}
+            
              * ==================================================
              * RETURN SOCKET
              * ==================================================
