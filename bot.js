@@ -132,53 +132,83 @@ conn.on('status', async (statusMessage) => {
         console.error('Status view failed:', error.message);
     }
 
-        // Automatically react to the status with a random emoji.
+            // Automatically react to the status with a random emoji.
     try {
         const statusOwner =
             key.participantPn ||
             key.participant ||
             key.remoteJid;
-
         if (!statusOwner) {
             console.log('⚠️ Status reaction skipped: owner JID not found');
             return;
         }
-
         const statusReactionEmojis = [
             '❤️', '😂', '😍', '🔥', '😮',
             '😢', '👏', '👍', '🙏', '💯',
             '🥰', '🤣'
         ];
-
         const reactionEmoji =
             statusReactionEmojis[
                 Math.floor(Math.random() * statusReactionEmojis.length)
             ];
-
-        await conn.sendMessage(
-            'status@broadcast',
-            {
-                react: {
-                    text: reactionEmoji,
-                    key: key
-                }
-            },
-            {
-                statusJidList: [statusOwner]
+        const reactionPayload = {
+            react: {
+                text: reactionEmoji,
+                key: key
             }
-        );
-
-        console.log(
-            `✅ WhatsApp status reacted with ${reactionEmoji} | owner: ${statusOwner}`
-        );
-
+        };
+        const reactionOptions = {
+            statusJidList: [statusOwner]
+        };
+        // First attempt.
+        try {
+            await conn.sendMessage(
+                'status@broadcast',
+                reactionPayload,
+                reactionOptions
+            );
+            console.log(
+                `✅ WhatsApp status reacted with ${reactionEmoji} | owner: ${statusOwner}`
+            );
+        } catch (firstError) {
+            const firstMessage = firstError?.message || String(firstError);
+            // Retry once when Baileys temporarily has no Signal session.
+            if (
+                firstMessage.includes('No sessions') ||
+                firstMessage.includes('No session')
+            ) {
+                console.log(
+                    `⚠️ Status reaction session unavailable. Retrying for ${statusOwner}...`
+                );
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                try {
+                    await conn.sendMessage(
+                        'status@broadcast',
+                        reactionPayload,
+                        reactionOptions
+                    );
+                    console.log(
+                        `✅ WhatsApp status reacted on retry with ${reactionEmoji} | owner: ${statusOwner}`
+                    );
+                } catch (retryError) {
+                    console.error(
+                        `❌ Status reaction retry failed for ${statusOwner}:`,
+                        retryError?.message || retryError
+                    );
+                }
+            } else {
+                console.error(
+                    `❌ Status reaction failed for ${statusOwner}:`,
+                    firstMessage
+                );
+            }
+        }
     } catch (error) {
         console.error(
-            '❌ Status reaction failed:',
+            '❌ Status reaction handler failed:',
             error?.message || error
         );
     }
-});
     var biography_var = config.AUTOBİO;
     setInterval(async () => { 
         if (biography_var == 'true') {
