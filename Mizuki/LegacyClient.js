@@ -258,56 +258,77 @@ class LegacyClient extends EventEmitter {
         }, delay);
     }
 
-    async requestPairingCode(phoneNumber) {
-        if (
-            this.authStorage?.state?.creds?.registered
-        ) {
+    
+async requestPairingCode(phoneNumber) {
+    if (this.authStorage?.state?.creds?.registered) {
+        throw new Error('WhatsApp is already registered');
+    }
+
+    const number = String(phoneNumber || '').replace(/\D/g, '');
+
+    if (!/^\d{8,15}$/.test(number)) {
+        throw new Error(
+            'Enter a valid phone number with country code'
+        );
+    }
+
+    const socket = this.socket;
+
+    if (!socket) {
+        throw new Error(
+            'WhatsApp is starting. Please wait for the QR code.'
+        );
+    }
+
+    if (typeof socket.waitForSocketOpen !== 'function') {
+        throw new Error(
+            'WhatsApp connection readiness function is unavailable. Check the Baileys installation.'
+        );
+    }
+
+    try {
+        await Promise.race([
+            socket.waitForSocketOpen(),
+            new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error(
+                        'WhatsApp connection timed out. Wait for a fresh QR code and try again.'
+                    ));
+                }, 20000);
+            })
+        ]);
+
+        if (socket !== this.socket) {
+            throw new Error(
+                'WhatsApp is reconnecting. Please try again.'
+            );
+        }
+
+        if (this.authStorage?.state?.creds?.registered) {
             throw new Error('WhatsApp is already registered');
         }
 
-        const number = String(phoneNumber || '')
-            .replace(/\D/g, '');
+        const code = await socket.requestPairingCode(number);
 
-        if (!number) {
+        if (!code) {
             throw new Error(
-                'Enter a valid phone number with country code'
+                'WhatsApp did not generate a pairing code.'
             );
         }
 
-        const socket = this.socket;
+        console.log('WhatsApp pairing code generated successfully');
 
-        if (!socket) {
-            throw new Error(
-                'WhatsApp is starting. Please try again shortly.'
-            );
-        }
+        return code;
 
-        // Wait for the underlying WebSocket to become ready.
-        const deadline = Date.now() + 15000;
-
-        while (Date.now() < deadline) {
-            if (socket !== this.socket) {
-                throw new Error(
-                    'WhatsApp is reconnecting. Please try again.'
-                );
-            }
-
-            const ws = socket.ws;
-
-            if (
-                ws?.isOpen === true ||
-                ws?.readyState === 1
-            ) {
-                return socket.requestPairingCode(number);
-            }
-
-            await sleep(250);
-        }
-
-        throw new Error(
-            'WhatsApp connection is not ready. Please wait for a fresh QR and try again.'
+    } catch (error) {
+        console.error(
+            'Pairing code generation error:',
+            error.message
         );
+
+        throw error;
     }
+}
 
     async sendMessage(jid, content, typeOrOptions, oldOptions) {
         if (!this.socket) {
