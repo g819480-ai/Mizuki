@@ -237,10 +237,7 @@ class LegacyClient extends EventEmitter {
 
                     auth: authState,
 
-                    browser:
-                        Browsers.ubuntu(
-                            'SCANTY MD BOT'
-                        ),
+                    browser: ['Ubuntu', 'Chrome', '120.0.0'],
 
                     printQRInTerminal:
                         false,
