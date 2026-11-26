@@ -40,21 +40,21 @@ const {
     */
 
 const MessageType = {
-text: ‘text’,
-image: ‘image’,
-video: ‘video’
+    text: 'text',
+    image: 'image',
+    video: 'video'
 };
 
 const Mimetype = {
-png: ‘image/png’,
-gif: ‘image/gif’
+    png: 'image/png',
+    gif: 'image/gif'
 };
 
 const Presence = {
-available: ‘available’,
-unavailable: ‘unavailable’,
-composing: ‘composing’,
-recording: ‘recording’
+    available: 'available',
+    unavailable: 'unavailable',
+    composing: 'composing',
+    recording: 'recording'
 };
 
 /*
