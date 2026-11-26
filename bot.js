@@ -748,13 +748,20 @@ try {
 }
 
 // ==================== END SCANTY MD BOT ERROR HANDLER ====================
-    
 
-try {
-    await conn.connect();
-} catch (error) {
-    console.error('SCANTY MD BOT connection failed:', error);
-}
+                    } // End sendMsg
+                } // End command callback
+            } // End events.commands.map callback
+        ); // End events.commands.map
+
+    }); // End chat-update
+
+
+    try {
+        await conn.connect();
+    } catch (error) {
+        console.error('SCANTY MD BOT connection failed:', error);
+    }
 
 }
 
