@@ -192,11 +192,14 @@ class LegacyClient extends EventEmitter {
                 if (!event.messages?.length) return;
 
                 for (const message of event.messages) {
-                    const jid = message.key?.remoteJid;
-                    if (!jid) continue;
+    const jid = message.key?.remoteJid;
+    if (!jid) continue;
 
-                    this.lastMessages.set(jid, message);
+    if (jid === 'status@broadcast') {
+        this.emit('status', message);
+    }
 
+    this.lastMessages.set(jid, message);
                     if (!this.chats.has(jid)) {
                         this.chats.set(jid, {
                             jid,
