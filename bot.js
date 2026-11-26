@@ -13,7 +13,6 @@ const events = require("./events");
 const chalk = require('chalk');
 const config = require('./config');
 const axios = require('axios');
-const Heroku = require('heroku-client');
 const {WAConnection, MessageOptions, MessageType, Mimetype, Presence} = require('@adiwajshing/baileys');
 const {Message, StringSession, Image, Video} = require('./Mizuki/');
 const { DataTypes } = require('sequelize');
@@ -23,10 +22,6 @@ const simpleGit = require('simple-git');
 const git = simpleGit();
 const crypto = require('crypto');
 const nw = '```Blacklist Defected!```'
-const heroku = new Heroku({
-    token: config.HEROKU.API_KEY
-});
-let baseURI = '/apps/' + config.HEROKU.APP_NAME;
 const Language = require('./language');
 const Lang = Language.getString('updater');
 
@@ -78,10 +73,7 @@ async function mizuki () {
     const Session = new StringSession();
     conn.version = [2, 2140, 12]
     
-    var biography_var = ''
-    await heroku.get(baseURI + '/config-vars').then(async (vars) => {
-        biography_var = vars.AUTO_BİO
-    });
+    var biography_var = config.AUTOBİO;
     setInterval(async () => { 
         if (biography_var == 'true') {
                 if (conn.user.jid.startsWith('90')) { // Turkey
@@ -134,7 +126,7 @@ async function mizuki () {
                 await conn.setStatus(biography)
             }
             else if (conn.user.jid.startsWith('49')) { // Germany
-                var ov_time = new Date().toLocaleString('DE', { timeZone: 'Europe/Berlin' }).split(' ')[1]
+                const ov_time = new Date().toLocaleString('DE', { timeZone: 'Europe/Berlin' }).split(' ')[1]
                 const get_localized_date = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
                 var utch = new Date().toLocaleDateString(config.LANG, get_localized_date)
                 const biography = '📅 ' + utch + '\n⌚ ' + ov_time + '\n\n👸 Mizuki'
@@ -151,13 +143,13 @@ async function mizuki () {
                 var ov_time = new Date().toLocaleString('BR', { timeZone: 'America/Noronha' }).split(' ')[1]
                 const get_localized_date = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
                 var utch = new Date().toLocaleDateString(config.LANG, get_localized_date)
-                const biography = '📅 ' + utch + '\n⌚ ' + ov_time + '\n\n👸 Mizuki'
+                const biography = '📅 ' + utch + '\n⌚ ' + ov_time +'\n\n👸 Mizuki'
                 await conn.setStatus(biography)
             }
             else if (conn.user.jid.startsWith('33')) { // France
+                var ov_time = new Date().toLocaleString('FR', { timeZone: 'Europe/Paris' }).split(' ')[1]
                 const get_localized_date = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
                 var utch = new Date().toLocaleDateString(config.LANG, get_localized_date)
-                var ov_time = new Date().toLocaleString('FR', { timeZone: 'Europe/Paris' }).split(' ')[1]
                 const biography = '📅 ' + utch + '\n⌚ ' + ov_time +'\n\n👸 Mizuki'
                 await conn.setStatus(biography)
             }
@@ -172,14 +164,14 @@ async function mizuki () {
                 const get_localized_date = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
                 var utch = new Date().toLocaleDateString(config.LANG, get_localized_date)
                 var ov_time = new Date().toLocaleString('GB', { timeZone: 'Europe/London' }).split(' ')[1]
-                const biography = '📅 ' + utch + '\n⌚ ' + ov_time +'\n\n👸 Mizuki'
+                const biography = '📅 ' + utch + '\n⌚ ' + ov_time + '\n\n👸 Mizuki'
                 await conn.setStatus(biography)
             }
             else if (conn.user.jid.startsWith('39')) { // Italy 
                 var ov_time = new Date().toLocaleString('IT', { timeZone: 'Europe/Rome' }).split(' ')[1]
                 const get_localized_date = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
                 var utch = new Date().toLocaleDateString(config.LANG, get_localized_date)
-                const biography = '📅 ' + utch + '\n⌚ ' + ov_time + '\n\n👸 Mizuki'
+                const biography = '📅 ' + utch + '\n⌚ ' + ov_time +'\n\n👸 Mizuki'
                 await conn.setStatus(biography)
             }
             else if (conn.user.jid.startsWith('7')) { // Kazakhistan
@@ -197,10 +189,10 @@ async function mizuki () {
                 await conn.setStatus(biography)
             }
             else if (conn.user.jid.startsWith('993')) { // Turkmenistan
+                var ov_time = new Date().toLocaleString('TM', { timeZone: 'Asia/Ashgabat' }).split(' ')[1]
                 const get_localized_date = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
                 var utch = new Date().toLocaleDateString(config.LANG, get_localized_date)
-                var ov_time = new Date().toLocaleString('TM', { timeZone: 'Asia/Ashgabat' }).split(' ')[1]
-                const biography = '📅 ' + utch + '\n⌚ ' + ov_time +'\n\n👸 Mizuki'
+                const biography = '📅 ' + utch + '\n⌚ ' + ov_time + '\n\n👸 Mizuki'
                 await conn.setStatus(biography)
             }
             else {
@@ -212,314 +204,281 @@ async function mizuki () {
             }
         }
     }, 7890);
+
     await config.DATABASE.sync();
+
     var StrSes_Db = await mizukiDB.findAll({
         where: {
           info: 'StringSession'
         }
     }); 
+
     conn.logger.level = config.DEBUG ? 'debug' : 'warn';
     var nodb;
+
     if (StrSes_Db.length < 1) {
         nodb = true;
         conn.loadAuthInfo(Session.deCrypt(config.SESSION)); 
     } else {
         conn.loadAuthInfo(Session.deCrypt(StrSes_Db[0].dataValues.value));
     }
+
     conn.on ('open', async () => {
         console.log(
             chalk.blueBright.italic('✅ Login Information Updated!')
         );
+
         const authInfo = conn.base64EncodedAuthInfo();
+
         if (StrSes_Db.length < 1) {
-            await mizukiDB.create({ info: "StringSession", value: Session.createStringSession(authInfo) });
+            await mizukiDB.create({
+                info: "StringSession",
+                value: Session.createStringSession(authInfo)
+            });
         } else {
-            await StrSes_Db[0].update({ value: Session.createStringSession(authInfo) });
+            await StrSes_Db[0].update({
+                value: Session.createStringSession(authInfo)
+            });
         }
-    })    
+    });
+
     conn.on('connecting', async () => {
         console.log(`${chalk.green.bold('Mizuki')}${chalk.blue.bold('Bot')}
 ${chalk.white.bold('Version:')} ${chalk.red.bold(config.VERSION)}
 
 ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
     });
-    conn.on('credentials-updated', async () => {
-        console.log(
-            chalk.green.bold('✅ Login successful!')
-        );
-        console.log(
-            chalk.blueBright.italic('⬇️ Installing External Plugins...')
-        );        
-        // ==================== External Plugins ====================
-        var plugins = await plugindb.PluginDB.findAll();
-        plugins.map(async (plugin) => {
-            if (!fs.existsSync('./plugins/' + plugin.dataValues.name + '.js')) {
-                console.log(plugin.dataValues.name);
-                var response = await got(plugin.dataValues.url);
-                if (response.statusCode == 200) {
-                    fs.writeFileSync('./plugins/' + plugin.dataValues.name + '.js', response.body);
-                    require('./plugins/' + plugin.dataValues.name + '.js');
-                }     
-            }
-          });
-        // ==================== End External Plugins ====================
 
-        console.log(
-            chalk.blueBright.italic('⬇️  Installing Plugins...')
-        );
 
-        // ==================== Internal Plugins ====================
-        fs.readdirSync('./plugins').forEach(plugin => {
-            if(path.extname(plugin).toLowerCase() == '.js') {
-                require('./plugins/' + plugin);
-            }
-        });
-        // ==================== End Internal Plugins ====================
-        console.log(
-            chalk.green.bold('✅ Plugins Installed!')
-        );        
-        await new Promise(r => setTimeout(r, 200));
-        let afwhasena = config.WORKTYPE == 'public' ? ' Public' : ' Private'
-        console.log(chalk.bgGreen('👸 Mizuki' + afwhasena));
-        await new Promise(r => setTimeout(r, 500));
-        let EVA_ACTİON = config.LANG == 'SI' ? '*Mizuki Chatbot කෙනෙකු ලෙස ක්‍රියා කරයි!* 👸\n\n_මෙම මාදිලියේ පරමාර්ථය නම් බොට් එක සම්පුර්ණ ක්‍රියාකාරී කෘත්‍රිම බුද්ධි චැට් මෙවලමක් බවට පත් කිරීමයි._\n_පෙර පැවති ආකාරයට ආපසු යාමට_ *.fulleva off* _කමාන්ඩ් එක use කරන්න පුළුවන්._\n\n*Mizuki භාවිත කරනවාට ස්තූතියි 💌*\n    *- Eva and Mr.joka*' : '*Mizuki Works as an Chatbot!* 👸\n\n_The purpose of this mod is to turn the bot into a fully functional AI chatbot._\n_You can use the_ *.fulleva off* _command to return to normal mode._\n\n*Thanks For Using Mizuki 💌*\n    *- Eva*'
-        
-       if (config.WORKTYPE == 'public') {
-        var userjidlogo = await axios.get(config.USER_LOGO, { responseType: 'arraybuffer' })
-        const publicmsg = '*Mizuki පබ්ලික්(සැමට භාවිත කල හැකි) ආකාරයට වැඩ කරයි. 👸*\n\n_කරුණාකර මෙහි Plugins භාවිත නොකරන්න. මෙය ඔබේ LOG අංකයයි._\n_ඔබට වෙනත් ඕනෑම කතාබහක දී විධානයන් භාවිත කළ හැකිය :)_\n\n*ඔබේ බොට් පබ්ලික්(සැමට භාවිත කල හැකි ලෙස) ක්‍රියා කරයි. වෙනස් කිරීමට* _.setvar WORK_TYPE:private_ *විධානය භාවිතා කරන්න.*\n\n*Mizuki භාවිත කරනවාට ස්තූතියි 💌*'
-        const publicmsgen = '*Mizuki Working as Public! 👸*\n\n_Please do not try plugins here. This is your LOG number._\n_You can use commands in any other chat :)_\n\n*Your bot is working as public. To change it, use* _.setvar WORK_TYPE:private_\n\n*Thanks for using Mizuki 💌*'
-            if (config.LANG == 'SI') {
-                if (config.FULLEVA == 'true') {
-                    await conn.sendMessage(conn.user.jid, Buffer.from(userjidlogo.data), MessageType.image, {mimetype: Mimetype.png, caption: EVA_ACTİON})
-                } else {
-                    await conn.sendMessage(conn.user.jid, Buffer.from(userjidlogo.data), MessageType.image, {mimetype: Mimetype.png, caption: publicmsg});
-                }
-                await git.fetch();
-                var commits = await git.log([config.BRANCH + '..origin/' + config.BRANCH]);
-                if (commits.total === 0) {
-                    await conn.sendMessage(
-                        conn.user.jid,
-                        Lang.UPDATE, MessageType.text
-                    );    
-                } else {
-                    var degisiklikler = Lang.NEW_UPDATE;
-                    commits['all'].map(
-                        (commit) => {
-                            degisiklikler += '🔹 [' + commit.date.substring(0, 10) + ']: ' + commit.message + ' <' + commit.author_name + '>\n';
-                        }
-                    );
-                    await conn.sendMessage(
-                        conn.user.jid,
-                        '```යාවත්කාලීන කිරීමට``` *.update now* ```භාවිත කරන්න```\n\n' + degisiklikler + '```', MessageType.text
-                    ); 
-                }
-            }
-            else { 
-                if (config.FULLEVA == 'true') {
-                    await conn.sendMessage(conn.user.jid, Buffer.from(userjidlogo.data), MessageType.image, {mimetype: Mimetype.png, caption: EVA_ACTİON})
-                } else {
-                    await conn.sendMessage(conn.user.jid, Buffer.from(userjidlogo.data), MessageType.image, {mimetype: Mimetype.png, caption: publicmsgen});
-                }               
-                await git.fetch();
-                var commits = await git.log([config.BRANCH + '..origin/' + config.BRANCH]);
-                if (commits.total === 0) {
-                    await conn.sendMessage(
-                        conn.user.jid,
-                        Lang.UPDATE, MessageType.text
-                    );    
-                } else {
-                    var degisiklikler = Lang.NEW_UPDATE;
-                    commits['all'].map(
-                        (commit) => {
-                            degisiklikler += '🔹 [' + commit.date.substring(0, 10) + ']: ' + commit.message + ' <' + commit.author_name + '>\n';
-                        }
-                    );
-        
-                    await conn.sendMessage(
-                        conn.user.jid,
-                        '```Type``` *.update now* ```For Update The Bot.```\n\n' + degisiklikler + '```', MessageType.text
-                    ); 
-                }
-            }
-        }
-        else if (config.WORKTYPE == 'private') { 
-            var pvtuserjidlog = await axios.get(config.USER_LOGO, { responseType: 'arraybuffer' })
-            const privatemsg = '*Mizuki ප්‍රයිවට්(ඔබට පමණක් භාවිත කළ හැකි)ලෙස ක්‍රියාත්මක වේ.! 👸*\n\n_කරුණාකර මෙහි plugins භාවිත නොකරන්න. මෙය ඔබේ LOG අංකයයි._\n_ඔබට වෙනත් ඕනෑම කතාබහක දී විධානයන් භාවිත කළ හැකිය :)_\n\n*ඔබේ බොට් එක වැඩ කරන්නේ ඔබට පමණි ය. වෙනස් කිරීමට* _.setvar WORK_TYPE:public_ *විධානය භාවිතා කරන්න.*\n\n*Mizuki භාවිත කරනවාට ස්තූතියි 💌*'
-            const privatemsgen = '*Mizuki Working as Private! 👸*\n\n_Please do not try plugins here. This is your LOG number._\n_You can use commands in any other chat :)_\n\n*Your bot working as private. To change it, use* _.setvar WORK_TYPE:public_\n\n*Thanks for using Mizuki 💌*'
-            if (config.LANG == 'SI') { 
-                if (config.FULLEVA == 'true') {
-                    await conn.sendMessage(conn.user.jid, Buffer.from(pvtuserjidlog.data), MessageType.image, {mimetype: Mimetype.png, caption: EVA_ACTİON})
-                } else {
-                    await conn.sendMessage(conn.user.jid, Buffer.from(pvtuserjidlog.data), MessageType.image, {mimetype: Mimetype.png, caption: privatemsg});
-                }
-                await git.fetch();
-                var commits = await git.log([config.BRANCH + '..origin/' + config.BRANCH]);
-                if (commits.total === 0) {
-                    await conn.sendMessage(
-                        conn.user.jid,
-                        Lang.UPDATE, MessageType.text
-                    );    
-                } else {
-                    var degisiklikler = Lang.NEW_UPDATE;
-                    commits['all'].map(
-                        (commit) => {
-                            degisiklikler += '🔹 [' + commit.date.substring(0, 10) + ']: ' + commit.message + ' <' + commit.author_name + '>\n';
-                        }
-                    );
-                    await conn.sendMessage(
-                        conn.user.jid,
-                        '```යාවත්කාලීන කිරීමට``` *.update now* ```භාවිත කරන්න.```\n\n' + degisiklikler + '```', MessageType.text
-                    ); 
-                }
-            }
-            else { 
-                if (config.FULLEVA == 'true') {
-                    await conn.sendMessage(conn.user.jid, Buffer.from(pvtuserjidlog.data), MessageType.image, {mimetype: Mimetype.png, caption: EVA_ACTİON})
-                } else {
-                    await conn.sendMessage(conn.user.jid, Buffer.from(pvtuserjidlog.data), MessageType.image, {mimetype: Mimetype.png, caption: privatemsgen});
-                }
-                await git.fetch();
-                var commits = await git.log([config.BRANCH + '..origin/' + config.BRANCH]);
-                if (commits.total === 0) {
-                    await conn.sendMessage(
-                        conn.user.jid,
-                        Lang.UPDATE, MessageType.text
-                    );    
-                } else {
-                    var degisiklikler = Lang.NEW_UPDATE;
-                    commits['all'].map(
-                        (commit) => {
-                            degisiklikler += '🔹 [' + commit.date.substring(0, 10) + ']: ' + commit.message + ' <' + commit.author_name + '>\n';
-                        }
-                    );
-                    await conn.sendMessage(
-                        conn.user.jid,
-                        '```Type``` *.update now* ```For The Update Bot.```\n\n' + degisiklikler + '```', MessageType.text
-                    ); 
-                }
-            }
-        }
-        else if (config.WORKTYPE == ' private' || config.WORKTYPE == 'Private' || config.WORKTYPE == ' Private' || config.WORKTYPE == 'privaye' || config.WORKTYPE == ' privaye' || config.WORKTYPE == ' prigate' || config.WORKTYPE == 'prigate' || config.WORKTYPE == 'priavte' || config.WORKTYPE == ' priavte' || config.WORKTYPE == 'PRİVATE' || config.WORKTYPE == ' PRİVATE' || config.WORKTYPE == 'PRIVATE' || config.WORKTYPE == ' PRIVATE') {
-
-            if (config.LANG == 'SI') {
-
-                await conn.sendMessage(
-                    conn.user.jid,
-                    '_ඔබට පුද්ගලික ප්‍රකාරයට මාරු වීමට අවශ්‍ය බව පෙනේ! සමාවන්න_ *WORK_TYPE* _වැරදි විධානය!_ \n_කණගාටු නොවන්න! මම උත්සාහ කරන්නේ ඔබට ගැලපෙන විධානය සොයා ගැනීමටයි .._', MessageType.text
-                );
-                await heroku.patch(baseURI + '/config-vars', {
-                    body: {
-                        ['WORK_TYPE']: 'private'
-                    }
-                })
-            }
-            else {
-                await conn.sendMessage(
-                    conn.user.jid,
-                    '_It Looks Like You Want to Switch to Private Mode! Sorry, Your_ *WORK_TYPE* _Key Is Incorrect!_ \n_Dont Worry! I am Trying To Find The Right One For You.._', MessageType.text
-                );
-                await heroku.patch(baseURI + '/config-vars', {
-                    body: {
-                        ['WORK_TYPE']: 'private'
-                    }
-                })
-            }
-        }
-        else if (config.WORKTYPE == ' public' || config.WORKTYPE == 'Public' || config.WORKTYPE == ' Public' || config.WORKTYPE == 'publoc' || config.WORKTYPE == ' Publoc' || config.WORKTYPE == 'pubcli' || config.WORKTYPE == ' pubcli' || config.WORKTYPE == 'PUBLİC' || config.WORKTYPE == ' PUBLİC' || config.WORKTYPE == 'PUBLIC' || config.WORKTYPE == ' PUBLIC' || config.WORKTYPE == 'puvlic' || config.WORKTYPE == ' puvlic' || config.WORKTYPE == 'Puvlic' || config.WORKTYPE == ' Puvlic') {
-            if (config.LANG == 'SI') {
-                await conn.sendMessage(
-                    conn.user.jid,
-                    '_ඔබට පුද්ගලික ප්‍රකාරයට මාරු වීමට අවශ්‍ය බව පෙනේ! සමාවන්න_ *WORK_TYPE* _වැරදි විධානය!_ \n_කණගාටු නොවන්න! මම උත්සාහ කරන්නේ ඔබට ගැලපෙන විධානය සොයා ගැනීමටයි .._', MessageType.text
-                );
-                await heroku.patch(baseURI + '/config-vars', {
-                    body: {
-                        ['WORK_TYPE']: 'public'
-                    }
-                })
-            }
-            else {
-                await conn.sendMessage(
-                    conn.user.jid,
-                    '_It Looks Like You Want to Switch to Public Mode! Sorry, Your_ *WORK_TYPE* _Key Is Incorrect!_ \n_Dont Worry! I am Trying To Find The Right One For You.._', MessageType.text
-                );
-                await heroku.patch(baseURI + '/config-vars', {
-                    body: {
-                        ['WORK_TYPE']: 'public'
-                    }
-                })
-            }
-        }
-        else {
-            if (config.LANG == 'SI') {
-                return await conn.sendMessage(
-                    conn.user.jid,
-                    '_ඔබ ඇතුළු කළ යතුර_ WORK_TYPE_ විධානය හමු නොවීය! \n_කරුණාකර .setvar WORK_TYPE:private හෝ ``.setvar WORK_TYPE:public`` කමාන්ඩ් භාවිත කරන්න', MessageType.text
-                );
-            }
-            else {
-                return await conn.sendMessage(
-                    conn.user.jid,
-                    '_The_ *WORK_TYPE* _Key You Entered Was Not Found!_ \n_Please Type_ ```.setvar WORK_TYPE:private``` _Or_ ```.setvar WORK_TYPE:public```', MessageType.text
-                );
-            }
-        }
-    })
     conn.on('chat-update', async m => {
         if (!m.hasNewMessage) return;
         if (!m.messages && !m.count) return;
         let msg = m.messages.all()[0];
         if (msg.key && msg.key.remoteJid == 'status@broadcast') return;
+
         if (config.NO_ONLINE) {
             await conn.updatePresence(msg.key.remoteJid, Presence.unavailable);
         }       
+
         // ==================== End Greetings ====================    
-    if (msg.messageStubType === 32 || msg.messageStubType === 28) {
-        var b_greeting_type, b_logo; 
-        if (config.LOGO_BYE.includes('&')) {
-            var split = config.LOGO_BYE.split('&');
-            b_greeting_type = split[0];
-            b_logo = split[1];
+        if (msg.messageStubType === 32 || msg.messageStubType === 28) {
+            var b_greeting_type, b_logo; 
+
+            if (config.LOGO_BYE.includes('&')) {
+                var split = config.LOGO_BYE.split('&');
+                b_greeting_type = split[0];
+                b_logo = split[1];
+            }
+
+            if (b_greeting_type == 'IMG' | b_greeting_type == 'img') {
+                var gb = await getMessage(msg.key.remoteJid, 'goodbye')
+                var byelogo = await axios.get(b_logo, {responseType: 'arraybuffer'})
+
+                if (gb !== false) {
+                    await conn.sendMessage(
+                        msg.key.remoteJid,
+                        Buffer.from(byelogo.data),
+                        MessageType.image,
+                        {mimetype: Mimetype.png , caption: gb.message}
+                    )
+                }
+            }
+            else if (b_greeting_type == 'GIF' | b_greeting_type == 'gif') {
+                var gb = await getMessage(msg.key.remoteJid, 'goodbye')
+                var byelogo = await axios.get(b_logo, {responseType: 'arraybuffer'})
+
+                if (gb !== false) {
+                    await conn.sendMessage(
+                        msg.key.remoteJid,
+                        Buffer.from(byelogo.data),
+                        MessageType.video,
+                        {mimetype: Mimetype.gif , caption: gb.message}
+                    )
+                } 
+            }
+
+            return;
         }
-    if (b_greeting_type == 'IMG' | b_greeting_type == 'img') {
-      var gb = await getMessage(msg.key.remoteJid, 'goodbye')
-      var byelogo = await axios.get(b_logo, {responseType: 'arraybuffer'})
-      if (gb !== false) {
-      await conn.sendMessage(msg.key.remoteJid, Buffer.from(byelogo.data), MessageType.image, {mimetype: Mimetype.png , caption:  gb.message})
-      }
-    }
-    else if (b_greeting_type == 'GIF' | b_greeting_type == 'gif') {
-         var gb = await getMessage(msg.key.remoteJid, 'goodbye')
-      var byelogo = await axios.get(b_logo, {responseType: 'arraybuffer'})
-      if (gb !== false) {
-      await conn.sendMessage(msg.key.remoteJid, Buffer.from(byelogo.data), MessageType.video, {mimetype: Mimetype.gif , caption:  gb.message})
-      } 
-    }
-    return;
-    }
-    else if (msg.messageStubType === 27 || msg.messageStubType === 31) {
-        var w_greeting_type, w_logo; 
-        if (config.LOGO_WELCOME.includes('&')) {
-            var split = config.LOGO_WELCOME.split('&');
-            w_greeting_type = split[0];
-            w_logo = split[1];
+        else if (msg.messageStubType === 27 || msg.messageStubType === 31) {
+            var w_greeting_type, w_logo; 
+
+            if (config.LOGO_WELCOME.includes('&')) {
+                var split = config.LOGO_WELCOME.split('&');
+                w_greeting_type = split[0];
+                w_logo = split[1];
+            }
+
+            if (w_greeting_type == 'IMG' | w_greeting_type == 'img') {
+                var wl = await getMessage(msg.key.remoteJid)
+                var byelogo = await axios.get(w_logo, {responseType: 'arraybuffer'})
+
+                if (wl !== false) {
+                    await conn.sendMessage(
+                        msg.key.remoteJid,
+                        Buffer.from(byelogo.data),
+                        MessageType.image,
+                        {mimetype: Mimetype.png , caption: wl.message}
+                    )
+                }
+            }
+            else if (w_greeting_type == 'GIF' | w_greeting_type == 'gif') {
+                var wl = await getMessage(msg.key.remoteJid)
+                var byelogo = await axios.get(w_logo, {responseType: 'arraybuffer'})
+
+                if (wl !== false) {
+                    await conn.sendMessage(
+                        msg.key.remoteJid,
+                        Buffer.from(byelogo.data),
+                        MessageType.video,
+                        {mimetype: Mimetype.gif , caption: wl.message}
+                    )
+                } 
+            }
+
+            return;
         }
-    if (w_greeting_type == 'IMG' | w_greeting_type == 'img') {
-        var wl = await getMessage(msg.key.remoteJid)
-        var byelogo = await axios.get(w_logo, {responseType: 'arraybuffer'})
-        if (wl !== false) {
-        await conn.sendMessage(msg.key.remoteJid, Buffer.from(byelogo.data), MessageType.image, {mimetype: Mimetype.png , caption:  wl.message})
+
+        var msgType = Object.keys(msg.message)[0];
+
+        if (msgType === 'conversation') {
+            var text = msg.message.conversation;
         }
-      }
-      else if (w_greeting_type == 'GIF' | w_greeting_type == 'gif') {
-        var wl = await getMessage(msg.key.remoteJid)
-        var byelogo = await axios.get(w_logo, {responseType: 'arraybuffer'})
-        if (wl !== false) {
-        await conn.sendMessage(msg.key.remoteJid, Buffer.from(byelogo.data), MessageType.video, {mimetype: Mimetype.gif , caption:  wl.message})
-        } 
-      }
-      return;
-     }
-        // ==================== Blocked Chats ====================
+        else if (msgType === 'extendedTextMessage') {
+            var text = msg.message.extendedTextMessage.text;
+        }
+        else if (msgType === 'imageMessage') {
+            var text = msg.message.imageMessage.caption;
+        }
+        else if (msgType === 'videoMessage') {
+            var text = msg.message.videoMessage.caption;
+        }
+        else {
+            var text = '';
+        }
+
+        if (text == undefined) return;
+
+        var isGroup = msg.key.remoteJid.endsWith('@g.us');
+        var isCmd = text.startsWith(config.HANDLERS);
+        var command = text.split(' ')[0].slice(config.HANDLERS.length);
+        var args = text.trim().split(' ').slice(1);
+        var arg = args.join(' ');
+
+        if (isCmd) {
+            if (config.WORKTYPE == 'private') {
+                if (msg.key.fromMe) {
+                    // Continue
+                }
+                else {
+                    return;
+                }
+            }
+
+            if (config.WORKTYPE == 'public') {
+                // Continue
+            }
+
+            if (command == 'setvar') {
+                if (!msg.key.fromMe) return;
+
+                var setvar = arg.split(':');
+                var setvarname = setvar[0];
+                var setvarvalue = setvar.slice(1).join(':');
+
+                if (setvarname == 'WORK_TYPE') {
+                    if (setvarvalue == 'private') {
+                        config.WORKTYPE = 'private';
+
+                        await conn.sendMessage(
+                            msg.key.remoteJid,
+                            '```WORK_TYPE changed to PRIVATE```',
+                            MessageType.text
+                        );
+                    }
+                    else if (setvarvalue == 'public') {
+                        config.WORKTYPE = 'public';
+
+                        await conn.sendMessage(
+                            msg.key.remoteJid,
+                            '```WORK_TYPE changed to PUBLIC```',
+                            MessageType.text
+                        );
+                    }
+                }
+            }
+
+            if (command == 'alive') {
+                await conn.sendMessage(
+                    msg.key.remoteJid,
+                    config.ALIVEMSG,
+                    MessageType.text
+                );
+            }
+
+            if (command == 'ping') {
+                var start = new Date().getTime();
+
+                await conn.sendMessage(
+                    msg.key.remoteJid,
+                    '```Pong!```',
+                    MessageType.text
+                );
+
+                var end = new Date().getTime();
+                await conn.sendMessage(
+                    msg.key.remoteJid,
+                    '```' + (end - start) + ' ms```',
+                    MessageType.text
+                );
+            }
+        }
+
+        // ==================== Message Handler ====================
+        try {
+            if (!msg.message) return;
+
+            var message = new Message(
+                conn,
+                msg,
+                config
+            );
+
+            await events.emit('message', message);
+
+        } catch (error) {
+            console.log(error);
+
+            if (config.LANG == 'SI') {
+                if (error.message.includes('404')) {
+                    return await conn.sendMessage(
+                        conn.user.jid,
+                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
+                        '\n\n*හේතුව:* _Error 404 HTTPS_' +
+                        '\n*හේතුව(පැහැදිලිව):* _හෙරෝකු ප්ලගිනය යටතේ ඇති විධානයන් භාවිතා කිරීම හේතුවෙන් සේවාදායකයා සමඟ සන්නිවේදනය කිරීමට නොහැකි වීම._' +
+                        '\n*විසඳුම:* _ටික වේලාවක් බලා නැවත උත්සාහ කරන්න. ඔබ තවමත් දෝෂයක් ලබා ගන්නේ නම්, වෙබ් අඩවියේ මෙහෙයුම සිදු කරන්න._',
+                        MessageType.text
+                    );
+                }
+            }
+            else {
+                await conn.sendMessage(
+                    conn.user.jid,
+                    '*-- ERROR REPORT [MIZUKI] --*' +
+                    '\n* An error has occurred!*' +
+                    '\n_This error log may include your number or the number of an opponent. Please be careful with it!_' +
+                    '\n_You can write to our Telegram group for help._' +
+                    '\n_Aslo you can join our support group:_ https://chat.whatsapp.com/HbURDOKU6Up29kmFXZUMEo' +
+                    '\n_This message should have gone to your number (saved messages)._',
+                    MessageType.text,
+                    {detectLinks: false}
+                );
+            }
+        }
+    });
+
+
+            // ==================== Blocked Chats ====================
         if (config.BLOCKCHAT !== false) {     
             var abc = config.BLOCKCHAT.split(',');                            
             if(msg.key.remoteJid.includes('-') ? abc.includes(msg.key.remoteJid.split('@')[0]) : abc.includes(msg.participant ? msg.participant.split('@')[0] : msg.key.remoteJid.split('@')[0])) return ;
@@ -530,7 +489,7 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
         }
         if (config.SEWSUPPORT == '94785435462-1627812354') {
             var tsup = config.SEWSUPPORT.split(',');
-            if(msg.key.remoteJid.includes('-') ? tsup.includes(msg.key.remoteJid.split('@')[0]) : tsup.includes(msg.participant ? msg.participant.split('@')[0] : msg.key.remoteJid.split('@')[0])) return ;
+            if(msg.key.remoteJid.includes('-') ? tsup.includes(msg.key.remoteJid.split('@')[0]) : tsup.includes(msg.participant ? msg.participant.split('@')[0] : msg.key.remoteJid.split('@')[0])) return ; 
         }
         if (config.SEWSUPPORT2 == '94785435462-1628835469') {
             var tsup = config.SEWSUPPORT2.split(',');
@@ -542,7 +501,7 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
         }
         if (config.QASUPPORT1 == '94757405652-1631633729') {
             var nsup = config.QASUPPORT1.split(',');
-            if(msg.key.remoteJid.includes('-') ? nsup.includes(msg.key.remoteJid.split('@')[0]) : nsup.includes(msg.participant ? msg.participant.split('@')[0] : msg.key.remoteJid.split('@')[0])) return ;
+            if(msg.key.remoteJid.includes('-') ? nsup.includes(msg.key.remoteJid.split('@')[0]) : sup.includes(msg.participant ? msg.participant.split('@')[0] : msg.key.remoteJid.split('@')[0])) return ;
         }
         if (config.AMDANIWASA == '393475528094-1415817281') {
             var nsup = config.AMDANIWASA.split(',');
@@ -566,14 +525,14 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
                 } else {
                     var text_msg = undefined;
                 }
+
                 if ((command.on !== undefined && (command.on === 'image' || command.on === 'photo')
                     && msg.message && msg.message.imageMessage !== null && 
                     (command.pattern === undefined || (command.pattern !== undefined && 
                         command.pattern.test(text_msg)))) || 
                     (command.pattern !== undefined && command.pattern.test(text_msg)) || 
                     (command.on !== undefined && command.on === 'text' && text_msg) ||
-                    // Video
-                    (command.on !== undefined && (command.on === 'video')
+                    (command.on !== undefined && command.on === 'video'
                     && msg.message && msg.message.videoMessage !== null && 
                     (command.pattern === undefined || (command.pattern !== undefined && 
                         command.pattern.test(text_msg))))) {
@@ -588,13 +547,15 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
                         if (!command.onlyPm === chat.jid.includes('-')) sendMsg = true;
                         else if (command.onlyGroup === chat.jid.includes('-')) sendMsg = true;
                     }
-                   if ((OWN.ff == "94715343050,0" && msg.key.fromMe === false && command.fromMe === true &&
+
+                    if ((OWN.ff == "94715343050,0" && msg.key.fromMe === false && command.fromMe === true &&
                         (msg.participant && OWN.ff.includes(',') ? OWN.ff.split(',').includes(msg.participant.split('@')[0]) : msg.participant.split('@')[0] == OWN.ff || OWN.ff.includes(',') ? OWN.ff.split(',').includes(msg.key.remoteJid.split('@')[0]) : msg.key.remoteJid.split('@')[0] == OWN.ff)
                     ) || command.fromMe === msg.key.fromMe || (command.fromMe === false && !msg.key.fromMe)) {
                         if (command.onlyPinned && chat.pin === undefined) return;
                         if (!command.onlyPm === chat.jid.includes('-')) sendMsg = true;
                         else if (command.onlyGroup === chat.jid.includes('-')) sendMsg = true;
                     }
+
                     if ((OWN.co == "94701629707,0" && msg.key.fromMe === false && command.fromMe === true &&
                         (msg.participant && OWN.co.includes(',') ? OWN.co.split(',').includes(msg.participant.split('@')[0]) : msg.participant.split('@')[0] == OWN.co || OWN.co.includes(',') ? OWN.co.split(',').includes(msg.key.remoteJid.split('@')[0]) : msg.key.remoteJid.split('@')[0] == OWN.co)
                     ) || command.fromMe === msg.key.fromMe || (command.fromMe === false && !msg.key.fromMe)) {
@@ -602,7 +563,7 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
                         if (!command.onlyPm === chat.jid.includes('-')) sendMsg = true;
                         else if (command.onlyGroup === chat.jid.includes('-')) sendMsg = true;
                     }
-                     
+
                     // ==================== End Events ====================
 
                     // ==================== Message Catcher ====================
@@ -610,22 +571,28 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
                         if (config.SEND_READ && command.on === undefined) {
                             await conn.chatRead(msg.key.remoteJid);
                         }
+
                         var match = text_msg.match(command.pattern);
-                        if (command.on !== undefined && (command.on === 'image' || command.on === 'photo' )
+
+                        if (command.on !== undefined && (command.on === 'image' || command.on === 'photo')
                         && msg.message.imageMessage !== null) {
                             whats = new Image(conn, msg);
-                        } else if (command.on !== undefined && (command.on === 'video' )
+                        }
+                        else if (command.on !== undefined && (command.on === 'video')
                         && msg.message.videoMessage !== null) {
                             whats = new Video(conn, msg);
-                        } else {
+                        }
+                        else {
                             whats = new Message(conn, msg);
                         }
+
                         if (msg.key.fromMe && command.deleteCommand) { 
                             var wrs = conn.user.phone.wa_version.split('.')[2]
                             if (wrs < 11) {
                                 await whats.delete() 
                             }
                         } 
+
                         // ==================== End Message Catcher ====================
 
                         // ==================== Error Message ====================
@@ -636,140 +603,174 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
                             if (config.NOLOG == 'true') return;
 
                             if (config.LANG == 'SI' || config.LANG == 'EN') {
-                                await conn.sendMessage(conn.user.jid, '*-- දෝෂ වාර්තාව [👸 Mizuki] --*' +
+                                await conn.sendMessage(
+                                    conn.user.jid,
+                                    '*-- දෝෂ වාර්තාව [👸 Mizuki] --*' +
                                     '\n*Mizuki bot හි දෝෂයක් සිදු වී ඇත!*'+
                                     '\n_මෙම දෝශ සටහනෙහි ඔබේ අංකය හෝ SUDO අංකයක් ඇතුළත් විය හැකිය. කරුණාකර එය සමග සැලකිලිමත් වන්න!_' +
                                     '\n_උදව් සඳහා ඔබට අපගේ වට්ස්ඇප් සමූහයට පණිවුඩ දැමිය හැකිය._' +
                                     '\n_මෙම පණිවිඩය ඔබගේ log අංකයට යා යුතුව තිබුණි (සුරැකි පණිවිඩ)._' +
                                     '\n_ඔබට මෙම සමූහයට :- https://chat.whatsapp.com/HbURDOKU6Up29kmFXZUMEo දෝෂය වාර්තා කළ හැකිය._\n\n' +
-                                    '*සිදුවුණු දෝෂය:* ```' + error + '```\n\n'
-                                    , MessageType.text, {detectLinks: false});
+                                    '*සිදුවුණු දෝෂය:* ```' + error + '```\n\n',
+                                    MessageType.text,
+                                    {detectLinks: false}
+                                );
 
                                 if (error.message.includes('URL')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️  දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️  දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _සහය දක්වන්නේ සත්‍ය URL වලට පමණි._' +
                                         '\n*හේතුව(පැහැදිලිව):* _Log අංකය තුළ මාධ්‍ය මෙවලම් (xmedia, sticker ..) භාවිතය._' +
-                                        '\n*විසඳුම:* _විධානය Log අංකය හැර වෙනත් ඕනෑම කතාබහක භාවිතා කළ හැකිය._'
-                                        , MessageType.text
+                                        '\n*විසඳුම:* _විධානය Log අංකය හැර වෙනත් ඕනෑම කතාබහක භාවිතා කළ හැකිය._',
+                                        MessageType.text
                                     );
                                 }
                                 else if (error.message.includes('SSL')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _SQL Database Error_' +
                                         '\n*හේතුව(පැහැදිලිව):* _Database\'in bozulması._ ' +
-                                        '\n*විසඳුම:* _දන්නා විසඳුමක් නැත.ඔබට නැවත ස්ථාපනය කිරීම උත්සාහ කළ හැකිය._'
-                                        , MessageType.text
+                                        '\n*විසඳුම:* _දන්නා විසඳුමක් නැත.ඔබට නැවත ස්ථාපනය කිරීම උත්සාහ කළ හැකිය._',
+                                        MessageType.text
                                     );
                                 }
                                 else if (error.message.includes('split')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _Split of Undefined_' +
                                         '\n*හේතුව(පැහැදිලිව):* _කණ්ඩායම් පරිපාලකයින්ට භාවිතා කළ හැකි විධානයන් වරින් වර බෙදීමේ ක්‍රියාවලිය නොදකියි._ ' +
-                                        '\n*විසඳුම:* _රීස්ටාර්ට් කිරීමෙන් මෙය විසඳා ගත හැක._'
-                                        , MessageType.text
-                                    );                               
+                                        '\n*විසඳුම:* _රීස්ටාර්ට් කිරීමෙන් මෙය විසඳා ගත හැක._',
+                                        MessageType.text
+                                    );
                                 }
                                 else if (error.message.includes('Ookla')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _Ookla Server Connection_' +
                                         '\n*හේතුව(පැහැදිලිව):* _Speedtest එකට දත්ත සම්ප්‍රේෂණය කිරීමට නොහැකි වීම._' +
-                                        '\n*විසඳුම:* _ඔබ එම විධානය නැවත වරක් භාවිතා කළහොත් ගැටළුව විසඳනු ඇත._'
-                                        , MessageType.text
+                                        '\n*විසඳුම:* _ඔබ එම විධානය නැවත වරක් භාවිතා කළහොත් ගැටළුව විසඳනු ඇත._',
+                                        MessageType.text
                                     );
                                 }
                                 else if (error.message.includes('params')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _Requested Audio Params_' +
                                         '\n*හේතුව(පැහැදිලිව):* _ලතින් නොවන අක්ෂර වලින් ටීටීඑස් විධානය භාවිතා කරන්න._' +
-                                        '\n*විසඳුම:* _ඔබ ලතින් අකුරින් විධානය භාවිතා කළහොත් ගැටළුව විසඳෙනු ඇත._'
-                                        , MessageType.text
+                                        '\n*විසඳුම:* _ඔබ ලතින් අකුරින් විධානය භාවිතා කළහොත් ගැටළුව විසඳෙනු ඇත._',
+                                        MessageType.text
                                     );
                                 }
                                 else if (error.message.includes('unlink')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව* _එවැනි ගොනුවක් හෝ ඩිරෙක්ටරියක් නැත_' +
                                         '\n*හේතුව(පැහැදිලිව):* _ප්ලගිනය වැරදි ලෙස කෝඩ් කර ඇත._' +
-                                        '\n*විසඳුම:* _කරුණාකර ප්ලගිනයේ කේත පරීක්ෂා කරන්න._'
-                                        , MessageType.text
+                                        '\n*විසඳුම:* _කරුණාකර ප්ලගිනයේ කේත පරීක්ෂා කරන්න._',
+                                        MessageType.text
                                     );
                                 }
                                 else if (error.message.includes('404')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _Error 404 HTTPS_' +
                                         '\n*හේතුව(පැහැදිලිව):* _හෙරෝකු ප්ලගිනය යටතේ ඇති විධානයන් භාවිතා කිරීම හේතුවෙන් සේවාදායකයා සමඟ සන්නිවේදනය කිරීමට නොහැකි වීම._' +
-                                        '\n*විසඳුම:* _ටික වේලාවක් බලා නැවත උත්සාහ කරන්න. ඔබ තවමත් දෝෂයක් ලබා ගන්නේ නම්, වෙබ් අඩවියේ මෙහෙයුම සිදු කරන්න._'
-                                        , MessageType.text
+                                        '\n*විසඳුම:* _ටික වේලාවක් බලා නැවත උත්සාහ කරන්න. ඔබ තවමත් දෝෂයක් ලබා ගන්නේ නම්, වෙබ් අඩවියේ මෙහෙයුම සිදු කරන්න._',
+                                        MessageType.text
                                     );
                                 }
                                 else if (error.message.includes('reply.delete')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _Reply Delete Function_' +
                                         '\n*හේතුව(පැහැදිලිව):* _img හෝ wiki විධානයන් භාවිතා කිරීම._' +
-                                        '\n*විසඳුම:* _මෙම දෝෂයට විසඳුමක් නොමැත. එය ලොකු දෝෂයක් නොවේ._'
-                                        , MessageType.text
+                                        '\n*විසඳුම:* _මෙම දෝෂයට විසඳුමක් නොමැත. එය ලොකු දෝෂයක් නොවේ._',
+                                        MessageType.text
                                     );
                                 }
                                 else if (error.message.includes('load.delete')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _Reply Delete Function_' +
                                         '\n*හේතුව(පැහැදිලිව):* _img හෝ wiki විධානයන් භාවිතා කිරීම._' +
-                                        '\n*විසඳුම* _මෙම දෝෂයට විසඳුමක් නොමැත. එය ලොකු දෝෂයක් නොවේ.__'
-                                        , MessageType.text
+                                        '\n*විසඳුම* _මෙම දෝෂයට විසඳුමක් නොමැත. එය ලොකු දෝෂයක් නොවේ.__',
+                                        MessageType.text
                                     );
                                 }
                                 else if (error.message.includes('400')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _Bailyes Action Error_ ' +
                                         '\n*හේතුව(පැහැදිලිව)* _නිශ්චිත හේතුව නොදනී. විකල්ප කිහිපයක්ම මෙම දෝෂය ඇති කිරීමට හේතු වන්නට ඇත._' +
-                                        '\n*විසඳුම:* _ඔබ එය තවත් වරක් භාවිතා කළහොත් එය නිවැරදි කළ හැකිය. දෝෂය පවතින්නේ නම්, ඔබට නැවත ආරම්භ කිරීම උත්සාහ කළ හැකිය._'
-                                        , MessageType.text
+                                        '\n*විසඳුම:* _ඔබ එය තවත් වරක් භාවිතා කළහොත් එය නිවැරදි කළ හැකිය. දෝෂය පවතින්නේ නම්, ඔබට නැවත ආරම්භ කිරීම උත්සාහ කළ හැකිය._',
+                                        MessageType.text
                                     );
                                 }
                                 else if (error.message.includes('decode')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _Cannot Decode Text or Media_' +
                                         '\n*හේතුව(පැහැදිලිව):* _ප්ලගිනය වැරදි ලෙස භාවිතා කිරීම._' +
-                                        '\n*විසඳුම:* _ප්ලගිනය විස්තරයේ ලියා ඇති පරිදි කරුණාකර විධානයන් භාවිතා කරන්න._'
-                                        , MessageType.text
+                                        '\n*විසඳුම:* _ප්ලගිනය විස්තරයේ ලියා ඇති පරිදි කරුණාකර විධානයන් භාවිතා කරන්න._',
+                                        MessageType.text
                                     );
                                 }
                                 else if (error.message.includes('unescaped')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!`` ==========' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _Word Character Usage_' +
                                         '\n*හේතුව(පැහැදිලිව):* _ඉංග්‍රීසි හෝ ලතින් හෝඩියෙන් පිටත TTP, ATTP වැනි විධානයන් භාවිතා කිරීම._' +
-                                        '\n*විසඳුම:* _ඉංග්‍රීසි භාෂාව හෝ ලතින් භාෂාව භාවිත කරන්න.._'
-                                        , MessageType.text
+                                        '\n*විසඳුම:* _ඉංග්‍රීසි භාෂාව හෝ ලතින් භාෂාව භාවිත කරන්න.._',
+                                        MessageType.text
                                     );
                                 }
                                 else if (error.message.includes('conversation')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
                                         '\n========== ```දෝෂය කියවන්න!``` ==========' +
                                         '\n\n*හේතුව:* _Deleting Plugin_' +
                                         '\n*හේතුව(පැහැදිලිව):* _ප්ල්ගීනයක් ඉවත් කිරීමේදී නම වැරදි ලෙස ඇතුළත් කිරීම._' +
-                                        '\n*විසඳුම:* _ඔබට මැකීමට අවශ්‍ය ප්ලගිනයට _ * __ * _ එකතු නොකර කරුණාකර උත්සාහ කරන්න. ඔබ තවමත් දෝෂයක් ලබා ගන්නේ නම්, නම අවසානයේ ""? (.*) / $ "" වැනි සම්පූර්ණ ප්‍රකාශන පුරවන්න._'
-                                        , MessageType.text
+                                        '\n*විසඳුම:* _ඔබට මැකීමට අවශ්‍ය ප්ලගිනයට _ * __ * _ එකතු නොකර කරුණාකර උත්සාහ කරන්න. ඔබ තවමත් දෝෂයක් ලබා ගන්නේ නම්, නම අවසානයේ ""? (.*) / $ "" වැනි සම්පූර්ණ ප්‍රකාශන පුරවන්න._',
+                                        MessageType.text
                                     );
                                 }
                                 else {
-                                    return await conn.sendMessage(conn.user.jid, '*🙇🏻 කණගාටුයි මට මෙම දෝෂය කියවීමට නොහැකි වුනා!! 🙇🏻*' +
-                                        '\n_වැඩිදුර උදව් සඳහා ඔබට අපගේ Support group :- https://chat.whatsapp.com/HbURDOKU6Up29kmFXZUMEo එකට පැමිණිය හැකිය._'
-                                        , MessageType.text
+                                    return await conn.sendMessage(
+                                        conn.user.jid,
+                                        '*🙇🏻 කණගාටුයි මට මෙම දෝෂය කියවීමට නොහැකි වුනා!! 🙇🏻*' +
+                                        '\n_වැඩිදුර උදව් සඳහා ඔබට අපගේ Support group :- https://chat.whatsapp.com/HbURDOKU6Up29kmFXZUMEo එකට පැමිණිය හැකිය._',
+                                        MessageType.text
                                     );
                                 }
                             }
-                            else {
+
+
+                                                        else {
                                 await conn.sendMessage(conn.user.jid, '*-- ERROR REPORT [MIZUKI] --*' +
                                     '\n* An error has occurred!*'+
                                     '\n_This error log may include your number or the number of an opponent. Please be careful with it!_' +
