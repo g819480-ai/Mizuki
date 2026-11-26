@@ -204,6 +204,14 @@ async function mizuki () {
 
     await config.DATABASE.sync();
 
+conn.logger.level = config.DEBUG ? 'debug' : 'warn';
+
+conn.on('open', () => {
+    console.log(
+        chalk.blueBright.italic('✅ SCANTY MD BOT connected successfully!')
+    );
+});
+
     conn.logger.level = config.DEBUG ? 'debug' : 'warn';
 
 conn.on('open', async () => {
