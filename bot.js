@@ -615,325 +615,140 @@ conn.on('status', async (statusMessage) => {
 
                         // ==================== End Message Catcher ====================
 
-                        // ==================== Error Message ====================
-                        try {
-                            await command.function(whats, match);
-                        }
-                        catch (error) {
-                            if (config.NOLOG == 'true') return;
-
-                            if (config.LANG == 'SI' || config.LANG == 'EN') {
-                                await conn.sendMessage(
-                                    conn.user.jid,
-                                    '*-- දෝෂ වාර්තාව [👸 Mizuki] --*' +
-                                    '\n*Mizuki bot හි දෝෂයක් සිදු වී ඇත!*'+
-                                    '\n_මෙම දෝශ සටහනෙහි ඔබේ අංකය හෝ SUDO අංකයක් ඇතුළත් විය හැකිය. කරුණාකර එය සමග සැලකිලිමත් වන්න!_' +
-                                    '\n_උදව් සඳහා ඔබට අපගේ වට්ස්ඇප් සමූහයට පණිවුඩ දැමිය හැකිය._' +
-                                    '\n_මෙම පණිවිඩය ඔබගේ log අංකයට යා යුතුව තිබුණි (සුරැකි පණිවිඩ)._' +
-                                    '\n_ඔබට මෙම සමූහයට :- https://chat.whatsapp.com/HbURDOKU6Up29kmFXZUMEo දෝෂය වාර්තා කළ හැකිය._\n\n' +
-                                    '*සිදුවුණු දෝෂය:* ```' + error + '```\n\n',
-                                    MessageType.text,
-                                    {detectLinks: false}
-                                );
-
-                                if (error.message.includes('URL')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️  දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _සහය දක්වන්නේ සත්‍ය URL වලට පමණි._' +
-                                        '\n*හේතුව(පැහැදිලිව):* _Log අංකය තුළ මාධ්‍ය මෙවලම් (xmedia, sticker ..) භාවිතය._' +
-                                        '\n*විසඳුම:* _විධානය Log අංකය හැර වෙනත් ඕනෑම කතාබහක භාවිතා කළ හැකිය._',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('SSL')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _SQL Database Error_' +
-                                        '\n*හේතුව(පැහැදිලිව):* _Database\'in bozulması._ ' +
-                                        '\n*විසඳුම:* _දන්නා විසඳුමක් නැත.ඔබට නැවත ස්ථාපනය කිරීම උත්සාහ කළ හැකිය._',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('split')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _Split of Undefined_' +
-                                        '\n*හේතුව(පැහැදිලිව):* _කණ්ඩායම් පරිපාලකයින්ට භාවිතා කළ හැකි විධානයන් වරින් වර බෙදීමේ ක්‍රියාවලිය නොදකියි._ ' +
-                                        '\n*විසඳුම:* _රීස්ටාර්ට් කිරීමෙන් මෙය විසඳා ගත හැක._',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('Ookla')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _Ookla Server Connection_' +
-                                        '\n*හේතුව(පැහැදිලිව):* _Speedtest එකට දත්ත සම්ප්‍රේෂණය කිරීමට නොහැකි වීම._' +
-                                        '\n*විසඳුම:* _ඔබ එම විධානය නැවත වරක් භාවිතා කළහොත් ගැටළුව විසඳනු ඇත._',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('params')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _Requested Audio Params_' +
-                                        '\n*හේතුව(පැහැදිලිව):* _ලතින් නොවන අක්ෂර වලින් ටීටීඑස් විධානය භාවිතා කරන්න._' +
-                                        '\n*විසඳුම:* _ඔබ ලතින් අකුරින් විධානය භාවිතා කළහොත් ගැටළුව විසඳෙනු ඇත._',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('unlink')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව* _එවැනි ගොනුවක් හෝ ඩිරෙක්ටරියක් නැත_' +
-                                        '\n*හේතුව(පැහැදිලිව):* _ප්ලගිනය වැරදි ලෙස කෝඩ් කර ඇත._' +
-                                        '\n*විසඳුම:* _කරුණාකර ප්ලගිනයේ කේත පරීක්ෂා කරන්න._',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('404')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _Error 404 HTTPS_' +
-                                        '\n*හේතුව(පැහැදිලිව):* _හෙරෝකු ප්ලගිනය යටතේ ඇති විධානයන් භාවිතා කිරීම හේතුවෙන් සේවාදායකයා සමඟ සන්නිවේදනය කිරීමට නොහැකි වීම._' +
-                                        '\n*විසඳුම:* _ටික වේලාවක් බලා නැවත උත්සාහ කරන්න. ඔබ තවමත් දෝෂයක් ලබා ගන්නේ නම්, වෙබ් අඩවියේ මෙහෙයුම සිදු කරන්න._',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('reply.delete')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _Reply Delete Function_' +
-                                        '\n*හේතුව(පැහැදිලිව):* _img හෝ wiki විධානයන් භාවිතා කිරීම._' +
-                                        '\n*විසඳුම:* _මෙම දෝෂයට විසඳුමක් නොමැත. එය ලොකු දෝෂයක් නොවේ._',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('load.delete')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _Reply Delete Function_' +
-                                        '\n*හේතුව(පැහැදිලිව):* _img හෝ wiki විධානයන් භාවිතා කිරීම._' +
-                                        '\n*විසඳුම* _මෙම දෝෂයට විසඳුමක් නොමැත. එය ලොකු දෝෂයක් නොවේ.__',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('400')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _Bailyes Action Error_ ' +
-                                        '\n*හේතුව(පැහැදිලිව)* _නිශ්චිත හේතුව නොදනී. විකල්ප කිහිපයක්ම මෙම දෝෂය ඇති කිරීමට හේතු වන්නට ඇත._' +
-                                        '\n*විසඳුම:* _ඔබ එය තවත් වරක් භාවිතා කළහොත් එය නිවැරදි කළ හැකිය. දෝෂය පවතින්නේ නම්, ඔබට නැවත ආරම්භ කිරීම උත්සාහ කළ හැකිය._',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('decode')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _Cannot Decode Text or Media_' +
-                                        '\n*හේතුව(පැහැදිලිව):* _ප්ලගිනය වැරදි ලෙස භාවිතා කිරීම._' +
-                                        '\n*විසඳුම:* _ප්ලගිනය විස්තරයේ ලියා ඇති පරිදි කරුණාකර විධානයන් භාවිතා කරන්න._',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('unescaped')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _Word Character Usage_' +
-                                        '\n*හේතුව(පැහැදිලිව):* _ඉංග්‍රීසි හෝ ලතින් හෝඩියෙන් පිටත TTP, ATTP වැනි විධානයන් භාවිතා කිරීම._' +
-                                        '\n*විසඳුම:* _ඉංග්‍රීසි භාෂාව හෝ ලතින් භාෂාව භාවිත කරන්න.._',
-                                        MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('conversation')) {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*⚕️ දෝෂ විසඳුම් [MIZUKI] ⚕️*' +
-                                        '\n========== ```දෝෂය කියවන්න!``` ==========' +
-                                        '\n\n*හේතුව:* _Deleting Plugin_' +
-                                        '\n*හේතුව(පැහැදිලිව):* _ප්ල්ගීනයක් ඉවත් කිරීමේදී නම වැරදි ලෙස ඇතුළත් කිරීම._' +
-                                        '\n*විසඳුම:* _ඔබට මැකීමට අවශ්‍ය ප්ලගිනයට _ * __ * _ එකතු නොකර කරුණාකර උත්සාහ කරන්න. ඔබ තවමත් දෝෂයක් ලබා ගන්නේ නම්, නම අවසානයේ ""? (.*) / $ "" වැනි සම්පූර්ණ ප්‍රකාශන පුරවන්න._',
-                                        MessageType.text
-                                    );
-                                }
-                                else {
-                                    return await conn.sendMessage(
-                                        conn.user.jid,
-                                        '*🙇🏻 කණගාටුයි මට මෙම දෝෂය කියවීමට නොහැකි වුනා!! 🙇🏻*' +
-                                        '\n_වැඩිදුර උදව් සඳහා ඔබට අපගේ Support group :- https://chat.whatsapp.com/HbURDOKU6Up29kmFXZUMEo එකට පැමිණිය හැකිය._',
-                                        MessageType.text
-                                    );
-                                }
-                            }
-
-
-                                                        else {
-                                await conn.sendMessage(conn.user.jid, '*-- ERROR REPORT [MIZUKI] --*' +
-                                    '\n* An error has occurred!*'+
-                                    '\n_This error log may include your number or the number of an opponent. Please be careful with it!_' +
-                                    '\n_You can write to our Telegram group for help._' +
-                                    '\n_Aslo you can join our support group:_ https://chat.whatsapp.com/HbURDOKU6Up29kmFXZUMEo' +
-                                    '\n_This message should have gone to your number (saved messages)._\n\n' +
-                                    '*Error:* ```' + error + '```\n\n'
-                                    , MessageType.text, {detectLinks: false}
-                                );
-                                if (error.message.includes('URL')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _Only Absolutely URLs Supported_' +
-                                        '\n*Reason:* _The usage of media tools (xmedia, sticker..) in the LOG number._' +
-                                        '\n*Solution:* _You can use commands in any chat, except the LOG number._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('conversation')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _Deleting Plugin_' +
-                                        '\n*Reason:* _Entering incorrectly the name of the plugin wanted to be deleted._' +
-                                        '\n*Solution:* _Please try without adding_ *__* _to the plugin you want to delete. If you still get an error, try to add like_ ```?(.*) / $``` _to the end of the name._ '
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('split')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _Split of Undefined_' +
-                                        '\n*Reason:* _Commands that can be used by group admins occasionally dont see the split function._ ' +
-                                        '\n*Solution:* _Restarting will be enough._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('SSL')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _SQL Database Error_' +
-                                        '\n*Reason:* _Database corruption._ ' +
-                                        '\n*Solution:* _There is no known solution. You can try reinstalling it._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('Ookla')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _Ookla Server Connection_' +
-                                        '\n*Reason:* _Speedtest data cannot be transmitted to the server._' +
-                                        '\n*Solution:* _If you use it one more time the problem will be solved._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('params')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _Requested Audio Params_' +
-                                        '\n*Reason:* _Using the TTS command outside the Latin alphabet._' +
-                                        '\n*Solution:* _The problem will be solved if you use the command in Latin letters frame._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('unlink')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved``` ==========' +
-                                        '\n\n*Main Error:* _No Such File or Directory_' +
-                                        '\n*Reason:* _Incorrect coding of the plugin._' +
-                                        '\n*Solution:* _Please check the your plugin codes._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('404')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _Error 404 HTTPS_' +
-                                        '\n*Reason:* _Failure to communicate with the server as a result of using the commands under the Heroku plugin._' +
-                                        '\n*Solution:* _Wait a while and try again. If you still get the error, perform the transaction on the website.._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('reply.delete')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _Reply Delete Function_' +
-                                        '\n*Reason:* _Using IMG or Wiki commands._' +
-                                        '\n*Solution:* _There is no solution for this error. It is not a fatal error._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('load.delete')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _Reply Delete Function_' +
-                                        '\n*Reason:* _Using IMG or Wiki commands._' +
-                                        '\n*Solution:* _There is no solution for this error. It is not a fatal error._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('400')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _Bailyes Action Error_ ' +
-                                        '\n*Reason:* _The exact reason is unknown. More than one option may have triggered this error._' +
-                                        '\n*Solution:* _If you use it again, it may improve. If the error continues, you can try to restart._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('decode')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _Cannot Decode Text or Media_' +
-                                        '\n*Reason:* _Incorrect use of the plug._' +
-                                        '\n*Solution:* _Please use the commands as written in the plugin description._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else if (error.message.includes('unescaped')) {
-                                    return await conn.sendMessage(conn.user.jid, '*⚕️ ERROR ANALYSIS [MIZUKI] ⚕️*' +
-                                        '\n========== ```Error Resolved!``` ==========' +
-                                        '\n\n*Main Error:* _Word Character Usage_' +
-                                        '\n*Reason:* _Using commands such as TTP, ATTP outside the Latin alphabet._' +
-                                        '\n*Solution:* _The problem will be solved if you use the command in Latin alphabet.._'
-                                        , MessageType.text
-                                    );
-                                }
-                                else {
-                                    return await conn.sendMessage(conn.user.jid, '*🙇🏻 Sorry, I Couldnt Read This Error! 🙇🏻*' +
-                                        '\n_You can write to our Support group :- https://chat.whatsapp.com/HbURDOKU6Up29kmFXZUMEo for more help._'
-                                        , MessageType.text
-                                    );
-                                }    
-                            }                      
-                        }
-                    }
-                }
-            }
+                        
         
+                    
+// ==================== SCANTY MD BOT ERROR HANDLER ====================
+try {
+    await command.function(whats, match);
+
+} catch (error) {
+
+    if (config.NOLOG == 'true') return;
+
+    const rawError =
+        error?.message ||
+        String(error) ||
+        'Unknown error';
+
+    const errorMessage = rawError
+        .replace(/[\r\n]+/g, ' ')
+        .slice(0, 500);
+
+    console.error(
+        `[SCANTY MD BOT] Command error: ${errorMessage}`
+    );
+
+    // Never expose sensitive authentication/session information
+    // through WhatsApp error messages.
+    const sensitivePatterns = [
+        /mongodb/i,
+        /mongo_uri/i,
+        /password/i,
+        /token/i,
+        /apikey/i,
+        /api[_-]?key/i,
+        /authorization/i,
+        /session/i,
+        /signal/i,
+        /private[_-]?key/i,
+        /secret/i,
+        /cookie/i,
+        /credential/i
+    ];
+
+    const containsSensitiveData =
+        sensitivePatterns.some(pattern => pattern.test(errorMessage));
+
+    let reason = 'The command could not be completed.';
+    let solution = 'Please try the command again. If the problem continues, restart SCANTY MD BOT and try again.';
+
+    if (/404/i.test(errorMessage)) {
+        reason = 'The requested online resource could not be found.';
+        solution = 'Check the URL or try the command again later.';
+    }
+    else if (/400|bad request/i.test(errorMessage)) {
+        reason = 'WhatsApp or an external service rejected the request.';
+        solution = 'Check the command format and try again.';
+    }
+    else if (/url|invalid url/i.test(errorMessage)) {
+        reason = 'The command received an invalid URL.';
+        solution = 'Use a complete and valid URL.';
+    }
+    else if (/ssl|certificate|tls/i.test(errorMessage)) {
+        reason = 'A secure connection to an external service failed.';
+        solution = 'Try again later. If it continues, the external service may be unavailable.';
+    }
+    else if (/unlink|enoent|no such file/i.test(errorMessage)) {
+        reason = 'A required file or directory could not be found.';
+        solution = 'The plugin or command may need to be checked by the developer.';
+    }
+    else if (/split|undefined|null/i.test(errorMessage)) {
+        reason = 'The command received missing or unexpected data.';
+        solution = 'Check the command format and try again.';
+    }
+    else if (/decode|decrypt|bad mac|no session/i.test(errorMessage)) {
+        reason = 'WhatsApp message/session data could not be processed.';
+        solution = 'Do not delete your MongoDB session. Restart SCANTY MD BOT and try again.';
+    }
+    else if (/timeout|timed out|ETIMEDOUT/i.test(errorMessage)) {
+        reason = 'The requested service took too long to respond.';
+        solution = 'Wait a moment and try the command again.';
+    }
+    else if (/network|ECONNRESET|ECONNREFUSED|socket/i.test(errorMessage)) {
+        reason = 'A network connection failed while processing the command.';
+        solution = 'Check the connection and try again.';
+    }
+    else if (/permission|forbidden|unauthorized/i.test(errorMessage)) {
+        reason = 'The bot does not have permission to perform this action.';
+        solution = 'Check the bot permissions or account access required by the command.';
+    }
+
+    let report;
+
+    if (containsSensitiveData) {
+        report =
+            `⚠️ *SCANTY MD BOT ERROR*\n\n` +
+            `❌ *An error occurred while processing your command.*\n\n` +
+            `🔒 The detailed technical error was hidden because it may contain sensitive information.\n\n` +
+            `💡 *Reason:* ${reason}\n` +
+            `🛠️ *Solution:* ${solution}\n\n` +
+            `🤖 *SCANTY MD BOT*`;
+    }
+    else {
+        report =
+            `⚠️ *SCANTY MD BOT ERROR*\n\n` +
+            `❌ *An error occurred while processing your command.*\n\n` +
+            `💡 *Reason:* ${reason}\n` +
+            `🛠️ *Solution:* ${solution}\n\n` +
+            `🧾 *Error:* \`${errorMessage}\`\n\n` +
+            `🤖 *SCANTY MD BOT*`;
+    }
+
+    try {
+        const ownerJid = conn.user?.jid;
+
+        if (ownerJid) {
+            await conn.sendMessage(
+                ownerJid,
+                report,
+                MessageType.text,
+                {
+                    detectLinks: false
+                }
+            );
+        }
+    }
+    catch (reportError) {
+        console.error(
+            '[SCANTY MD BOT] Failed to send error report:',
+            reportError?.message || reportError
         );
+    }
+}
 
-    });
-
-    // ==================== End Error Message ====================
+// ==================== END SCANTY MD BOT ERROR HANDLER ====================
+    
 
 try {
     await conn.connect();
