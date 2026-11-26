@@ -15,7 +15,7 @@
     */
 
 const EventEmitter = require('events');
-const fs = require(‘fs’);
+const fs = require('fs');
 const pino = require(‘pino’);
 
 const {
