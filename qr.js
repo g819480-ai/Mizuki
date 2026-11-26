@@ -388,15 +388,11 @@ function startQrServer(conn) {
                     });
                 }
 
-                const phone = String(data.phone || '')
-                    .replace(/\\D/g, '');
+                                const phone = String(data.phone || '')
+                    .replace(/\D/g, '');
 
-                if (!/^\\d{8,15}$/.test(phone)) {
-                    return sendJSON(res, 400, {
-                        error: 'Enter a valid phone number with country code'
-                    });
-                }
-
+                if (!/^\d{8,15}$/.test(phone)) {
+                 
                 if (!client || !client.socket) {
                     return sendJSON(res, 503, {
                         error: 'WhatsApp is starting. Please wait for it to initialize.'
