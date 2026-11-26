@@ -154,7 +154,7 @@ module.exports = {
 
     WORKTYPE:
         process.env.WORK_TYPE === undefined
-            ? 'private'
+            ? 'public'
             : process.env.WORK_TYPE,
 
     PROMOTEMSG:
