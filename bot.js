@@ -874,5 +874,5 @@ try {
 } catch (error) {
     console.error('SCANTY MD BOT connection failed:', error);
 }
-                await conn.connect();
+    
             
