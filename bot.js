@@ -204,37 +204,7 @@ async function mizuki () {
 
     await config.DATABASE.sync();
 
-conn.logger.level = config.DEBUG ? 'debug' : 'warn';
 
-conn.on('open', () => {
-    console.log(
-        chalk.blueBright.italic('✅ SCANTY MD BOT connected successfully!')
-    );
-});
-
-    conn.logger.level = config.DEBUG ? 'debug' : 'warn';
-
-conn.on('open', async () => {
-    console.log(
-        chalk.blueBright.italic('✅ SCANTY MD BOT connected successfully!')
-    );
-});
-
-    if (config.SESSION && config.SESSION.trim() !== '') {
-        const authInfo = Session.deCrypt(config.SESSION);
-
-        if (authInfo) {
-            conn.loadAuthInfo(authInfo);
-        }
-    }
-} else {
-    const authInfo = Session.deCrypt(StrSes_Db[0].dataValues.value);
-
-    if (authInfo) {
-        conn.loadAuthInfo(authInfo);
-    }
-}
-    
     conn.on('chat-update', async m => {
         if (!m.hasNewMessage) return;
         if (!m.messages && !m.count) return;
