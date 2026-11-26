@@ -13,7 +13,7 @@
   "dependencies": {
     "queen-mizuki": "2.0.1",
     "sanuwa-npm": "1.1.9",
-    "@whiskeysockets/baileys": "6.7.24",
+    "@whiskeysockets/baileys": "7.0.0-rc14",
     "mongodb": "^6.20.0",
     "pino": "^9.6.0",
     "qrcode": "^1.5.4"
