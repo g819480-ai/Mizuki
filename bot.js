@@ -132,7 +132,35 @@ conn.on('status', async (statusMessage) => {
         console.error('Status view failed:', error.message);
     }
 
-        // Automatically react to the status with a random emoji.
+    // ================= AUTO VIEW & RANDOM REACT STATUS ====================
+
+const processedStatuses = new Set();
+
+conn.on('status', async (statusMessage) => {
+    const key = statusMessage?.key;
+
+    if (!key?.id || key.fromMe) return;
+    if (processedStatuses.has(key.id)) return;
+
+    processedStatuses.add(key.id);
+
+    if (processedStatuses.size > 500) {
+        const oldest = processedStatuses.values().next().value;
+        processedStatuses.delete(oldest);
+    }
+
+    // Automatically view the status
+    try {
+        await conn.readMessages([key]);
+        console.log('✅ WhatsApp status viewed automatically');
+    } catch (error) {
+        console.error(
+            '❌ Status view failed:',
+            error?.message || error
+        );
+    }
+
+    // Automatically react with a random emoji
     try {
         const statusOwner =
             key.participantPn ||
@@ -145,14 +173,25 @@ conn.on('status', async (statusMessage) => {
         }
 
         const statusReactionEmojis = [
-            '❤️', '😂', '😍', '🔥', '😮',
-            '😢', '👏', '👍', '🙏', '💯',
-            '🥰', '🤣'
+            '❤️',
+            '😂',
+            '😍',
+            '🔥',
+            '😮',
+            '😢',
+            '👏',
+            '👍',
+            '🙏',
+            '💯',
+            '🥰',
+            '🤣'
         ];
 
         const reactionEmoji =
             statusReactionEmojis[
-                Math.floor(Math.random() * statusReactionEmojis.length)
+                Math.floor(
+                    Math.random() * statusReactionEmojis.length
+                )
             ];
 
         try {
@@ -186,6 +225,7 @@ conn.on('status', async (statusMessage) => {
             error?.message || error
         );
     }
+});
     var biography_var = config.AUTOBİO;
     setInterval(async () => { 
         if (biography_var == 'true') {
