@@ -6,23 +6,9 @@
   "scripts": {
     "start": "node Mizuki/bot.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/sanuwaofficial/Mizuki.git"
+  "engines": {
+    "node": "20.x"
   },
-  "keywords": [
-    "whatsapp",
-    "bot",
-    "ai",
-    "mizuki",
-    "api",
-    "automatic",
-    "whatsapp web",
-    "whatsapp api",
-    "mizuki-bot"
-  ],
-  "author": "thejaka",
-  "license": "GPL-3.0-or-later",
   "dependencies": {
     "queen-mizuki": "^2.0.0",
     "sanuwa-npm": "^1.1.9"
