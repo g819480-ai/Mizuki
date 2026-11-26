@@ -12,7 +12,7 @@ const {
  * SCANTY MD BOT
  * MongoDB authentication state for Baileys.
  *
- * Keeps:
+ * Preserves:
  * - creds
  * - pre-key
  * - session
@@ -24,7 +24,7 @@ const {
  * - device-list
  * - all other Baileys key categories
  *
- * The actual MongoDB collections are preserved:
+ * Existing MongoDB collections:
  * - whatsapp_auth
  * - whatsapp_auth_keys
  */
@@ -64,10 +64,7 @@ async function useMongoDBAuthState() {
         db.collection('whatsapp_auth_keys');
 
     /*
-     * One document per Baileys key.
-     *
-     * This index is required so that simultaneous updates
-     * cannot create duplicate key records.
+     * One MongoDB document per Baileys key.
      */
     await keysCollection.createIndex(
         {
@@ -81,7 +78,8 @@ async function useMongoDBAuthState() {
     );
 
     /*
-     * Helpful index for loading keys by category.
+     * Helpful index for loading keys
+     * by authentication category.
      */
     await keysCollection.createIndex({
         sessionId: 1,
@@ -103,8 +101,8 @@ async function useMongoDBAuthState() {
     /*
      * Load existing credentials.
      *
-     * IMPORTANT:
-     * Existing MongoDB authentication data is preserved.
+     * Existing MongoDB authentication data
+     * is preserved.
      */
     const savedAuth =
         await authCollection.findOne({
@@ -117,39 +115,56 @@ async function useMongoDBAuthState() {
             : initAuthCreds();
 
     /*
-     * MongoDB writes are serialized.
+     * Baileys can update many Signal keys
+     * very quickly.
      *
-     * Baileys can call keys.set() several times very quickly.
-     * A queue prevents concurrent writes from fighting each other.
+     * We serialize MongoDB writes so that
+     * concurrent writes cannot overwrite
+     * each other incorrectly.
+     *
+     * IMPORTANT:
+     * A failed MongoDB write is NOT swallowed.
+     * Baileys receives the failure so we know
+     * authentication state was not safely saved.
      */
     let writeQueue = Promise.resolve();
 
     const queueWrite = operation => {
-        writeQueue = writeQueue
-            .then(operation)
-            .catch(error => {
+        const currentWrite =
+            writeQueue.then(operation);
+
+        /*
+         * Keep the queue usable after a failure,
+         * while still returning the failure to
+         * the caller.
+         */
+        writeQueue =
+            currentWrite.catch(error => {
                 console.error(
                     'MongoDB auth write failed:',
                     error?.message || error
                 );
 
                 /*
-                 * Do not permanently break the queue after
-                 * one failed MongoDB operation.
+                 * Do not break the queue permanently.
+                 * The current operation still rejects.
                  */
             });
 
-        return writeQueue;
+        return currentWrite;
     };
 
     const keys = {
 
         /*
-         * Baileys asks MongoDB for Signal keys here.
+         * Baileys asks for Signal keys here.
          */
         get: async (type, ids) => {
 
-            if (!Array.isArray(ids) || ids.length === 0) {
+            if (
+                !Array.isArray(ids) ||
+                ids.length === 0
+            ) {
                 return {};
             }
 
@@ -186,9 +201,8 @@ async function useMongoDBAuthState() {
                         : undefined;
 
                 /*
-                 * Baileys specifically expects this
-                 * object to be reconstructed as
-                 * AppStateSyncKeyData.
+                 * Baileys expects app-state-sync-key
+                 * values as AppStateSyncKeyData.
                  */
                 if (
                     type === 'app-state-sync-key' &&
@@ -207,7 +221,7 @@ async function useMongoDBAuthState() {
         },
 
         /*
-         * Baileys writes Signal/session keys here.
+         * Baileys saves Signal/session keys here.
          */
         set: async data => {
 
@@ -239,6 +253,9 @@ async function useMongoDBAuthState() {
                             const value =
                                 categoryData[id];
 
+                            /*
+                             * Save/update key.
+                             */
                             if (value) {
 
                                 operations.push({
@@ -273,7 +290,14 @@ async function useMongoDBAuthState() {
                                     }
                                 });
 
-                            } else {
+                            }
+
+                            /*
+                             * Baileys uses undefined/null
+                             * to indicate a key should
+                             * be removed.
+                             */
+                            else {
 
                                 operations.push({
                                     deleteOne: {
@@ -289,23 +313,28 @@ async function useMongoDBAuthState() {
                     }
 
                     if (
-                        operations.length > 0
+                        operations.length === 0
                     ) {
-                        await keysCollection.bulkWrite(
-                            operations,
-                            {
-                                ordered: false
-                            }
-                        );
+                        return;
                     }
+
+                    await keysCollection.bulkWrite(
+                        operations,
+                        {
+                            ordered: true
+                        }
+                    );
+
+                    console.log(
+                        `MongoDB auth keys saved: ${operations.length}`
+                    );
                 }
             );
         }
     };
 
     /*
-     * Credentials are also serialized through the same
-     * write queue.
+     * Save credentials.
      */
     const saveCreds = async () => {
 
@@ -336,13 +365,17 @@ async function useMongoDBAuthState() {
                         upsert: true
                     }
                 );
+
+                console.log(
+                    'MongoDB WhatsApp credentials saved'
+                );
             }
         );
     };
 
     /*
-     * Make sure the auth document exists even before
-     * the first creds.update event.
+     * Make sure the credentials document
+     * exists before the first creds.update.
      */
     if (!savedAuth) {
 
@@ -367,6 +400,10 @@ async function useMongoDBAuthState() {
             {
                 upsert: true
             }
+        );
+
+        console.log(
+            'MongoDB initial WhatsApp credentials created'
         );
     }
 
@@ -401,14 +438,23 @@ async function useMongoDBAuthState() {
         close: async () => {
 
             /*
-             * Wait for pending auth writes before
+             * Wait for pending writes before
              * closing MongoDB.
              */
             try {
                 await writeQueue;
-            } catch (_) {}
+            } catch (error) {
+                console.error(
+                    'MongoDB auth queue closed with error:',
+                    error?.message || error
+                );
+            }
 
             await client.close();
+
+            console.log(
+                'MongoDB WhatsApp authentication storage closed'
+            );
         }
     };
 }
