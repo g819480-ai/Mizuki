@@ -2,9 +2,9 @@
   "name": "scanty-md",
   "version": "1.0.0",
   "description": "Scanty project - a WhatsApp userbot helping to improve your Whatsapp experience.",
-  "main": "Mizuki/bot.js",
+  "main": "bot.js",
   "scripts": {
-    "start": "node Mizuki/bot.js"
+    "start": "node bot.js"
   },
   "engines": {
     "node": "20.x"
