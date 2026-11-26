@@ -10,6 +10,11 @@ let qrExpiresAt = null;
 let pairingCode = null;
 let connectionStatus = 'Waiting for WhatsApp...';
 let server = null;
+let qrExpiryTimer = null;
+let qrGeneration = 0;
+let pairingInProgress = false;
+
+const QR_LIFETIME = 30000;
 
 const PAGE = `<!DOCTYPE html>
 <html lang="en">
@@ -73,12 +78,15 @@ button:disabled{opacity:.5}
   <div class="placeholder">Waiting for QR code...</div>
  </div>
  <div class="timer" id="timer">Waiting for QR code</div>
- <p class="note">Scan this QR code using WhatsApp → Linked Devices.</p>
+ <p class="note">Scan using WhatsApp → Linked Devices.</p>
 
  <div class="section">
   <h3>PAIR WITH PHONE NUMBER</h3>
-  <input id="phone" type="tel" placeholder="Country code + phone number">
-  <button id="pairButton" onclick="getPairingCode()">GET PAIRING CODE</button>
+  <input id="phone" type="tel" inputmode="numeric"
+   placeholder="Country code + phone number">
+  <button id="pairButton" onclick="getPairingCode()">
+   GET PAIRING CODE
+  </button>
   <div class="code" id="code"></div>
   <p class="note">Enter your number with country code, without the + sign.</p>
  </div>
@@ -87,45 +95,67 @@ button:disabled{opacity:.5}
 <script>
 let lastQr = null;
 let expiresAt = null;
+let refreshRunning = false;
 
 async function refresh() {
+ if (refreshRunning) return;
+ refreshRunning = true;
+
  try {
-  const response = await fetch('/api/status');
+  const response = await fetch('/api/status', {
+   cache: 'no-store'
+  });
+
+  if (!response.ok) throw new Error('Status unavailable');
+
   const data = await response.json();
 
   document.getElementById('status').textContent =
    'Status: ' + data.status;
 
-  if (data.qr && data.qr !== lastQr) {
-   lastQr = data.qr;
-   expiresAt = data.expiresAt;
+  const box = document.getElementById('qrbox');
+  const timer = document.getElementById('timer');
 
-   const image = document.createElement('img');
-   image.src = data.qr;
-   const box = document.getElementById('qrbox');
-   box.replaceChildren(image);
-  }
-
-  if (!data.qr && data.status === 'Connected') {
-   document.getElementById('qrbox').innerHTML =
+  if (data.status === 'Connected') {
+   box.innerHTML =
     '<div class="placeholder">WhatsApp Connected ✓</div>';
-   document.getElementById('timer').textContent = 'Connected';
+   timer.textContent = 'Connected';
    lastQr = null;
    expiresAt = null;
-  }
+  } else if (data.qr) {
+   expiresAt = data.expiresAt;
 
-  if (!data.qr && data.status !== 'Connected' && !lastQr) {
-   document.getElementById('qrbox').innerHTML =
-    '<div class="placeholder">Waiting for QR code...</div>';
+   if (data.qr !== lastQr) {
+    lastQr = data.qr;
+
+    const image = document.createElement('img');
+    image.alt = 'WhatsApp QR Code';
+    image.src = data.qr;
+
+    box.replaceChildren(image);
+   }
+  } else {
+   lastQr = null;
+   expiresAt = null;
+
+   box.innerHTML =
+    '<div class="placeholder">Waiting for a fresh QR code...</div>';
+
+   if (data.status !== 'Connected') {
+    timer.textContent = 'Waiting for QR code';
+   }
   }
 
   if (data.pairingCode) {
    document.getElementById('code').textContent =
     data.pairingCode;
   }
+
  } catch (error) {
   document.getElementById('status').textContent =
    'Dashboard reconnecting...';
+ } finally {
+  refreshRunning = false;
  }
 }
 
@@ -138,24 +168,28 @@ function updateTimer() {
   0, Math.ceil((expiresAt - Date.now()) / 1000)
  );
 
- timer.textContent = remaining > 0
-  ? 'QR expires in ' + remaining + ' seconds'
-  : 'QR expired - waiting for a new QR...';
+ if (remaining > 0) {
+  timer.textContent = 'QR expires in ' + remaining + ' seconds';
+ } else {
+  timer.textContent = 'QR expired - waiting for a new QR...';
+ }
 }
 
 async function getPairingCode() {
- const phone = document.getElementById('phone').value.trim();
+ const phone = document.getElementById('phone').value
+  .trim().replace(/\\D/g, '');
+
  const button = document.getElementById('pairButton');
  const code = document.getElementById('code');
 
- if (!phone) {
-  alert('Enter your phone number with country code.');
+ if (!/^\\d{8,15}$/.test(phone)) {
+  alert('Enter a valid phone number with country code.');
   return;
  }
 
  button.disabled = true;
  button.textContent = 'REQUESTING...';
- code.textContent = '';
+ code.textContent = 'Requesting pairing code...';
 
  try {
   const response = await fetch('/api/pair', {
@@ -166,10 +200,18 @@ async function getPairingCode() {
 
   const result = await response.json();
 
-  if (!response.ok) throw new Error(result.error || 'Pairing failed');
+  if (!response.ok) {
+   throw new Error(result.error || 'Pairing failed');
+  }
+
+  if (!result.code) {
+   throw new Error('WhatsApp did not return a pairing code.');
+  }
 
   code.textContent = result.code;
+
  } catch (error) {
+  code.textContent = '';
   alert(error.message);
  } finally {
   button.disabled = false;
@@ -187,10 +229,23 @@ refresh();
 function sendJSON(res, status, data) {
     res.writeHead(status, {
         'Content-Type': 'application/json',
-        'Cache-Control': 'no-store',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
         'Access-Control-Allow-Origin': '*'
     });
+
     res.end(JSON.stringify(data));
+}
+
+function clearQR() {
+    qrGeneration++;
+
+    if (qrExpiryTimer) {
+        clearTimeout(qrExpiryTimer);
+        qrExpiryTimer = null;
+    }
+
+    currentQR = null;
+    qrExpiresAt = null;
 }
 
 function startQrServer(conn) {
@@ -200,21 +255,47 @@ function startQrServer(conn) {
 
     client.on('qr', async qr => {
         if (!qr) {
-            currentQR = null;
-            qrExpiresAt = null;
+            clearQR();
             return;
         }
 
+        const generation = ++qrGeneration;
+
         try {
-            currentQR = await QRCode.toDataURL(qr, {
+            const image = await QRCode.toDataURL(qr, {
                 width: 400,
                 margin: 2,
                 errorCorrectionLevel: 'H'
             });
 
-            qrExpiresAt = Date.now() + 30000;
+            // Ignore an old QR conversion if a newer QR arrived.
+            if (generation !== qrGeneration) return;
+
+            if (qrExpiryTimer) {
+                clearTimeout(qrExpiryTimer);
+            }
+
+            currentQR = image;
+            qrExpiresAt = Date.now() + QR_LIFETIME;
             connectionStatus = 'Scan the QR code';
+
+            qrExpiryTimer = setTimeout(() => {
+                if (generation !== qrGeneration) return;
+
+                currentQR = null;
+                qrExpiresAt = null;
+                qrExpiryTimer = null;
+
+                if (connectionStatus !== 'Connected') {
+                    connectionStatus =
+                        'QR expired - waiting for a new QR code';
+                }
+
+                console.log('QR code expired');
+            }, QR_LIFETIME);
+
             console.log('Dashboard QR updated');
+
         } catch (error) {
             console.error('QR generation failed:', error.message);
         }
@@ -225,16 +306,23 @@ function startQrServer(conn) {
     });
 
     client.on('open', () => {
+        clearQR();
+
         connectionStatus = 'Connected';
-        currentQR = null;
-        qrExpiresAt = null;
         pairingCode = null;
+        pairingInProgress = false;
+
+        console.log('WhatsApp connected successfully');
     });
 
     client.on('close', () => {
-        connectionStatus = 'Disconnected - reconnecting required';
-        currentQR = null;
-        qrExpiresAt = null;
+        clearQR();
+
+        connectionStatus = 'Disconnected - reconnecting';
+        pairingCode = null;
+        pairingInProgress = false;
+
+        console.log('WhatsApp disconnected');
     });
 
     server = http.createServer(async (req, res) => {
@@ -246,13 +334,16 @@ function startQrServer(conn) {
                 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
                 'Access-Control-Allow-Headers': 'Content-Type'
             });
+
             return res.end();
         }
 
         if (req.method === 'GET' && url.pathname === '/') {
             res.writeHead(200, {
-                'Content-Type': 'text/html; charset=utf-8'
+                'Content-Type': 'text/html; charset=utf-8',
+                'Cache-Control': 'no-store'
             });
+
             return res.end(PAGE);
         }
 
@@ -266,11 +357,20 @@ function startQrServer(conn) {
         }
 
         if (req.method === 'POST' && url.pathname === '/api/pair') {
+            if (pairingInProgress) {
+                return sendJSON(res, 429, {
+                    error: 'A pairing request is already processing. Please wait.'
+                });
+            }
+
+            pairingInProgress = true;
+
             try {
                 let body = '';
 
                 for await (const chunk of req) {
                     body += chunk;
+
                     if (body.length > 4096) {
                         return sendJSON(res, 413, {
                             error: 'Request too large'
@@ -278,18 +378,28 @@ function startQrServer(conn) {
                     }
                 }
 
-                const data = JSON.parse(body || '{}');
-                const phone = String(data.phone || '').replace(/\D/g, '');
+                let data;
 
-                if (!phone) {
+                try {
+                    data = JSON.parse(body || '{}');
+                } catch (_) {
                     return sendJSON(res, 400, {
-                        error: 'Enter a valid phone number'
+                        error: 'Invalid request data'
                     });
                 }
 
-                if (!client?.socket) {
+                const phone = String(data.phone || '')
+                    .replace(/\\D/g, '');
+
+                if (!/^\\d{8,15}$/.test(phone)) {
+                    return sendJSON(res, 400, {
+                        error: 'Enter a valid phone number with country code'
+                    });
+                }
+
+                if (!client || !client.socket) {
                     return sendJSON(res, 503, {
-                        error: 'WhatsApp is not ready yet'
+                        error: 'WhatsApp is starting. Please wait for it to initialize.'
                     });
                 }
 
@@ -299,15 +409,42 @@ function startQrServer(conn) {
                     });
                 }
 
-                const code = await client.requestPairingCode(phone);
-                pairingCode = code;
+                if (
+                    client.authStorage?.state?.creds?.registered
+                ) {
+                    return sendJSON(res, 409, {
+                        error: 'This WhatsApp session is already registered'
+                    });
+                }
 
-                return sendJSON(res, 200, { code });
+                const code = await client.requestPairingCode(phone);
+
+                if (!code) {
+                    throw new Error(
+                        'WhatsApp did not return a pairing code'
+                    );
+                }
+
+                pairingCode = String(code);
+
+                console.log('Pairing code generated successfully');
+
+                return sendJSON(res, 200, {
+                    code: pairingCode
+                });
+
             } catch (error) {
-                console.error('Pairing request failed:', error.message);
+                console.error(
+                    'Pairing request failed:',
+                    error.message
+                );
+
                 return sendJSON(res, 500, {
                     error: error.message || 'Pairing request failed'
                 });
+
+            } finally {
+                pairingInProgress = false;
             }
         }
 
@@ -319,7 +456,9 @@ function startQrServer(conn) {
     const port = Number(process.env.PORT) || 3000;
 
     server.listen(port, '0.0.0.0', () => {
-        console.log('SCANTY MD BOT dashboard listening on port ' + port);
+        console.log(
+            'SCANTY MD BOT dashboard listening on port ' + port
+        );
     });
 
     return server;
