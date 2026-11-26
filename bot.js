@@ -484,7 +484,7 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
                 );
             }
         }
-       });
+       
 
             // ==================== Blocked Chats ====================
         if (config.BLOCKCHAT !== false) {     
@@ -916,8 +916,11 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
                     }
                 }
             }
-        )
-    
+        
+        );
+
+    });
+
     // ==================== End Error Message ====================
 
     try {
