@@ -8,7 +8,8 @@ const pino = require('pino');
 const {
     default: makeWASocket,
     downloadMediaMessage,
-    Browsers
+    Browsers,
+    DisconnectReason
 } = require('@whiskeysockets/baileys');
 
 const { useMongoDBAuthState } = require('./mongoAuth');
@@ -31,6 +32,8 @@ const Presence = {
     recording: 'recording'
 };
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 class LegacyClient extends EventEmitter {
     constructor() {
         super();
@@ -42,6 +45,12 @@ class LegacyClient extends EventEmitter {
         this.chats = new Map();
         this.lastMessages = new Map();
         this.authStorage = null;
+
+        this.reconnectTimer = null;
+        this.reconnectAttempts = 0;
+        this.connectingPromise = null;
+        this.shouldReconnect = true;
+        this.connectionOpen = false;
     }
 
     loadAuthInfo() {
@@ -53,121 +62,211 @@ class LegacyClient extends EventEmitter {
     }
 
     async connect() {
-        this.emit('connecting');
+        this.shouldReconnect = true;
 
-        this.authStorage = await useMongoDBAuthState();
-
-        this.socket = makeWASocket({
-            auth: this.authStorage.state,
-            browser: Browsers.ubuntu('SCANTY MD BOT'),
-            printQRInTerminal: false,
-            markOnlineOnConnect: false,
-            syncFullHistory: false,
-            logger: pino({
-                level: this.logger.level || 'warn'
-            })
-        });
-
-        this.socket.ev.on('creds.update', async () => {
-            try {
-                await this.authStorage.saveCreds();
-            } catch (error) {
-                console.error(
-                    'MongoDB auth save failed:',
-                    error.message
-                );
-            }
-        });
-
-        // WhatsApp connection and QR updates
-        this.socket.ev.on('connection.update', update => {
-            const {
-                connection,
-                lastDisconnect,
-                qr
-            } = update;
-
-            // Forward every new QR code to the dashboard
-            if (qr) {
-                console.log('New WhatsApp QR received');
-                this.emit('qr', qr);
-            }
-
-            if (connection === 'connecting') {
-                this.emit('connecting');
-            }
-
-            if (connection === 'open') {
-                const current = this.socket.user || {};
-
-                this.user = {
-                    ...current,
-                    jid: current.id || current.jid || '',
-                    phone: {
-                        wa_version: '0.0.0'
-                    }
-                };
-
-                console.log('SCANTY MD BOT connected to WhatsApp');
-
-                // Clear the old QR when connected
-                this.emit('qr', null);
-                this.emit('open');
-            }
-
-            if (connection === 'close') {
-                const error = lastDisconnect?.error;
-
-                console.error(
-                    'WhatsApp connection closed:',
-                    error?.message || 'Connection closed'
-                );
-
-                this.emit('close', error);
-            }
-        });
-
-        // Incoming WhatsApp messages
-        this.socket.ev.on('messages.upsert', event => {
-            if (!event.messages?.length) return;
-
-            for (const message of event.messages) {
-                const jid = message.key?.remoteJid;
-                if (!jid) continue;
-
-                this.lastMessages.set(jid, message);
-
-                if (!this.chats.has(jid)) {
-                    this.chats.set(jid, {
-                        jid,
-                        pin: undefined
-                    });
-                }
-            }
-
-            this.emit('chat-update', {
-                hasNewMessage: true,
-                count: event.messages.length,
-                messages: {
-                    all: () => event.messages
-                }
-            });
-        });
-
-        return this.socket;
-    }
-
-    // Generate a WhatsApp pairing code
-    async requestPairingCode(phoneNumber) {
-        if (!this.socket) {
-            throw new Error('WhatsApp socket is not ready');
+        if (this.connectingPromise) {
+            return this.connectingPromise;
         }
 
-        if (this.authStorage?.state?.creds?.registered) {
+        if (
+            this.socket &&
+            (
+                this.socket.ws?.isOpen === true ||
+                this.socket.ws?.readyState === 1
+            )
+        ) {
+            return this.socket;
+        }
+
+        this.connectingPromise = (async () => {
+            if (!this.authStorage) {
+                this.authStorage = await useMongoDBAuthState();
+            }
+
+            this.emit('connecting');
+            this.connectionOpen = false;
+
+            const socket = makeWASocket({
+                auth: this.authStorage.state,
+                browser: Browsers.ubuntu('SCANTY MD BOT'),
+                printQRInTerminal: false,
+                markOnlineOnConnect: false,
+                syncFullHistory: false,
+                logger: pino({
+                    level: this.logger.level || 'warn'
+                })
+            });
+
+            this.socket = socket;
+
+            socket.ev.on('creds.update', async () => {
+                try {
+                    await this.authStorage.saveCreds();
+                } catch (error) {
+                    console.error(
+                        'MongoDB auth save failed:',
+                        error.message
+                    );
+                }
+            });
+
+            socket.ev.on('connection.update', update => {
+                if (this.socket !== socket) return;
+
+                const {
+                    connection,
+                    lastDisconnect,
+                    qr
+                } = update;
+
+                if (qr) {
+                    console.log('New WhatsApp QR received');
+                    this.emit('qr', qr);
+                }
+
+                if (connection === 'connecting') {
+                    this.emit('connecting');
+                }
+
+                if (connection === 'open') {
+                    this.connectionOpen = true;
+                    this.reconnectAttempts = 0;
+
+                    if (this.reconnectTimer) {
+                        clearTimeout(this.reconnectTimer);
+                        this.reconnectTimer = null;
+                    }
+
+                    const current = socket.user || {};
+
+                    this.user = {
+                        ...current,
+                        jid: current.id || current.jid || '',
+                        phone: {
+                            wa_version: '0.0.0'
+                        }
+                    };
+
+                    console.log(
+                        'SCANTY MD BOT connected to WhatsApp'
+                    );
+
+                    this.emit('qr', null);
+                    this.emit('open');
+                }
+
+                if (connection === 'close') {
+                    this.connectionOpen = false;
+
+                    const error = lastDisconnect?.error;
+                    const statusCode =
+                        error?.output?.statusCode;
+
+                    console.error(
+                        'WhatsApp connection closed:',
+                        error?.message || 'Connection closed',
+                        'Status:',
+                        statusCode || 'unknown'
+                    );
+
+                    this.emit('qr', null);
+                    this.emit('close', error);
+
+                    // A logged-out account needs fresh authentication.
+                    if (
+                        statusCode === DisconnectReason.loggedOut
+                    ) {
+                        console.error(
+                            'WhatsApp logged out. Fresh linking is required.'
+                        );
+                        return;
+                    }
+
+                    // Automatically recreate the socket after QR expiry
+                    // or an unexpected WhatsApp disconnection.
+                    this.scheduleReconnect();
+                }
+            });
+
+            socket.ev.on('messages.upsert', event => {
+                if (!event.messages?.length) return;
+
+                for (const message of event.messages) {
+                    const jid = message.key?.remoteJid;
+                    if (!jid) continue;
+
+                    this.lastMessages.set(jid, message);
+
+                    if (!this.chats.has(jid)) {
+                        this.chats.set(jid, {
+                            jid,
+                            pin: undefined
+                        });
+                    }
+                }
+
+                this.emit('chat-update', {
+                    hasNewMessage: true,
+                    count: event.messages.length,
+                    messages: {
+                        all: () => event.messages
+                    }
+                });
+            });
+
+            return socket;
+        })();
+
+        try {
+            return await this.connectingPromise;
+        } finally {
+            this.connectingPromise = null;
+        }
+    }
+
+    scheduleReconnect() {
+        if (!this.shouldReconnect || this.reconnectTimer) {
+            return;
+        }
+
+        this.reconnectAttempts++;
+
+        const delay = Math.min(
+            2000 * Math.pow(1.5, this.reconnectAttempts - 1),
+            15000
+        );
+
+        console.log(
+            `WhatsApp reconnecting in ${Math.ceil(delay / 1000)} seconds. Attempt ${this.reconnectAttempts}`
+        );
+
+        this.reconnectTimer = setTimeout(async () => {
+            this.reconnectTimer = null;
+
+            if (!this.shouldReconnect) return;
+
+            try {
+                await this.connect();
+            } catch (error) {
+                console.error(
+                    'WhatsApp reconnect failed:',
+                    error.message
+                );
+
+                this.scheduleReconnect();
+            }
+        }, delay);
+    }
+
+    async requestPairingCode(phoneNumber) {
+        if (
+            this.authStorage?.state?.creds?.registered
+        ) {
             throw new Error('WhatsApp is already registered');
         }
 
-        const number = String(phoneNumber || '').replace(/\D/g, '');
+        const number = String(phoneNumber || '')
+            .replace(/\D/g, '');
 
         if (!number) {
             throw new Error(
@@ -175,7 +274,39 @@ class LegacyClient extends EventEmitter {
             );
         }
 
-        return this.socket.requestPairingCode(number);
+        const socket = this.socket;
+
+        if (!socket) {
+            throw new Error(
+                'WhatsApp is starting. Please try again shortly.'
+            );
+        }
+
+        // Wait for the underlying WebSocket to become ready.
+        const deadline = Date.now() + 15000;
+
+        while (Date.now() < deadline) {
+            if (socket !== this.socket) {
+                throw new Error(
+                    'WhatsApp is reconnecting. Please try again.'
+                );
+            }
+
+            const ws = socket.ws;
+
+            if (
+                ws?.isOpen === true ||
+                ws?.readyState === 1
+            ) {
+                return socket.requestPairingCode(number);
+            }
+
+            await sleep(250);
+        }
+
+        throw new Error(
+            'WhatsApp connection is not ready. Please wait for a fresh QR and try again.'
+        );
     }
 
     async sendMessage(jid, content, typeOrOptions, oldOptions) {
@@ -274,7 +405,9 @@ class LegacyClient extends EventEmitter {
         const output =
             filename || message.key?.id || `scanty-${Date.now()}`;
 
-        const target = output.includes('.') ? output : `${output}.bin`;
+        const target = output.includes('.')
+            ? output
+            : `${output}.bin`;
 
         fs.writeFileSync(target, buffer);
         return target;
@@ -297,9 +430,19 @@ class LegacyClient extends EventEmitter {
     }
 
     async close() {
+        this.shouldReconnect = false;
+        this.connectionOpen = false;
+
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+
         try {
             this.socket?.end(undefined);
         } catch (_) {}
+
+        this.socket = null;
 
         try {
             await this.authStorage?.close();
@@ -309,6 +452,8 @@ class LegacyClient extends EventEmitter {
                 error.message
             );
         }
+
+        this.authStorage = null;
     }
 }
 
