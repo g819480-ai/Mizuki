@@ -2,6 +2,8 @@
 
 const EventEmitter = require('events');
 const fs = require('fs');
+const pino = require('pino');
+
 const {
     default: makeWASocket,
     downloadMediaMessage,
@@ -42,8 +44,6 @@ class LegacyClient extends EventEmitter {
     }
 
     loadAuthInfo() {
-        // Old Baileys session data is deliberately not loaded here.
-        // The active WhatsApp authentication is stored in MongoDB.
         return true;
     }
 
@@ -62,27 +62,22 @@ class LegacyClient extends EventEmitter {
             printQRInTerminal: false,
             markOnlineOnConnect: false,
             syncFullHistory: false,
-            logger: {
-                level: this.logger.level || 'warn',
-                trace() {},
-                debug() {},
-                info() {},
-                warn: console.warn.bind(console),
-                error: console.error.bind(console),
-                fatal: console.error.bind(console),
-                child() {
-                    return this;
-                }
-            }
+            logger: pino({
+                level: this.logger.level || 'warn'
+            })
         });
 
         this.socket.ev.on('creds.update', async () => {
             try {
                 await this.authStorage.saveCreds();
             } catch (error) {
-                console.error('MongoDB auth save failed:', error.message);
+                console.error(
+                    'MongoDB auth save failed:',
+                    error.message
+                );
             }
         });
+
 
         this.socket.ev.on('connection.update', update => {
             const { connection, lastDisconnect } = update;
@@ -104,16 +99,18 @@ class LegacyClient extends EventEmitter {
 
             if (connection === 'close') {
                 const error = lastDisconnect?.error;
+
                 console.error(
                     'WhatsApp connection closed:',
                     error?.message || 'Connection closed'
                 );
+
                 this.emit('close', error);
             }
         });
 
         this.socket.ev.on('messages.upsert', event => {
-            if (!event.messages || !event.messages.length) return;
+            if (!event.messages?.length) return;
 
             for (const message of event.messages) {
                 const jid = message.key?.remoteJid;
@@ -127,22 +124,24 @@ class LegacyClient extends EventEmitter {
                         pin: undefined
                     });
                 }
-
-                this.emit('chat-update', {
-                    hasNewMessage: true,
-                    count: event.messages.length,
-                    messages: {
-                        all: () => event.messages
-                    }
-                });
             }
+
+            this.emit('chat-update', {
+                hasNewMessage: true,
+                count: event.messages.length,
+                messages: {
+                    all: () => event.messages
+                }
+            });
         });
 
         return this.socket;
     }
 
     async sendMessage(jid, content, typeOrOptions, oldOptions) {
-        if (!this.socket) throw new Error('WhatsApp is not connected');
+        if (!this.socket) {
+            throw new Error('WhatsApp is not connected');
+        }
 
         let payload;
         let options = {};
@@ -195,18 +194,18 @@ class LegacyClient extends EventEmitter {
     }
 
     async updatePresence(jid, presence) {
-    if (!this.socket) return false;
-    return this.socket.sendPresenceUpdate(presence, jid);
-}
+        if (!this.socket) return false;
+        return this.socket.sendPresenceUpdate(presence, jid);
+    }
 
-async sendPresenceUpdate(presence, jid) {
-    return this.updatePresence(jid, presence);
-}
+    async sendPresenceUpdate(presence, jid) {
+        return this.updatePresence(jid, presence);
+    }
 
-async readMessages(keys) {
-    if (!this.socket) return false;
-    return this.socket.readMessages(keys);
-}
+    async readMessages(keys) {
+        if (!this.socket) return false;
+        return this.socket.readMessages(keys);
+    }
 
     async chatRead(jid) {
         if (!this.socket) return false;
@@ -218,19 +217,23 @@ async readMessages(keys) {
     }
 
     async downloadAndSaveMediaMessage(message, filename) {
-        if (!this.socket) throw new Error('WhatsApp is not connected');
+        if (!this.socket) {
+            throw new Error('WhatsApp is not connected');
+        }
 
         const buffer = await downloadMediaMessage(
             message,
             'buffer',
             {},
             {
-                logger: console,
+                logger: this.logger,
                 reuploadRequest: this.socket.updateMediaMessage
             }
         );
 
-        const output = filename || message.key?.id || `scanty-${Date.now()}`;
+        const output =
+            filename || message.key?.id || `scanty-${Date.now()}`;
+
         const target = output.includes('.') ? output : `${output}.bin`;
 
         fs.writeFileSync(target, buffer);
@@ -238,14 +241,16 @@ async readMessages(keys) {
     }
 
     async downloadMediaMessage(message) {
-        if (!this.socket) throw new Error('WhatsApp is not connected');
+        if (!this.socket) {
+            throw new Error('WhatsApp is not connected');
+        }
 
         return downloadMediaMessage(
             message,
             'buffer',
             {},
             {
-                logger: console,
+                logger: this.logger,
                 reuploadRequest: this.socket.updateMediaMessage
             }
         );
@@ -270,3 +275,6 @@ module.exports = {
     Mimetype,
     Presence
 };
+
+
+    
