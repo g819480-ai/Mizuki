@@ -13,6 +13,7 @@ const events = require("./events");
 const chalk = require('chalk');
 const config = require('./config');
 const axios = require('axios');
+const { startQrServer } = require('./qr');
 const { LegacyClient, MessageType, Mimetype, Presence } = require('./Mizuki/LegacyClient');
 const { Message, Image, Video } = require('./Mizuki/');
 const { DataTypes } = require('sequelize');
@@ -70,6 +71,7 @@ Array.prototype.remove = function() {
 
 async function mizuki () {
     const conn = new LegacyClient();
+    startQrServer(conn);
     var biography_var = config.AUTOBİO;
     setInterval(async () => { 
         if (biography_var == 'true') {
@@ -874,5 +876,10 @@ try {
 } catch (error) {
     console.error('SCANTY MD BOT connection failed:', error);
 }
-    
-            
+
+}
+
+mizuki().catch(error => {
+    console.error('SCANTY MD BOT startup failed:', error);
+    process.exitCode = 1;
+});
