@@ -1,12 +1,5 @@
-/* Copyright (C) 2020 Yusuf Usta. - Copyright (C) 2021 Mr.joka.
+'use strict';
 
-Licensed under the  GPL-3.0 License;
-you may not use this file except in compliance with the License.
-
-Mizuki - Mr.joka
-*/
-
-const {MessageType, Presence, MessageOptions} = require('@adiwajshing/baileys');
 const Base = require('./Base');
 const ReplyMessage = require('./ReplyMessage');
 
@@ -17,52 +10,61 @@ class Message extends Base {
     }
 
     _patch(data) {
-        this.id = data.key.id === undefined ? undefined : data.key.id;
-        this.jid = data.key.remoteJid;
-        this.fromMe = data.key.fromMe;
-        this.message = data.message.extendedTextMessage === null ? data.message.conversation : data.message.extendedTextMessage.text;
-        this.unreadCount = data.unreadCount;
-        this.timestamp = typeof(data.messageTimestamp) === 'object' ? data.messageTimestamp.low : data.messageTimestamp;
+        const msg = data.message || {};
+        const type = Object.keys(msg)[0];
+
+        this.id = data.key?.id;
+        this.jid = data.key?.remoteJid;
+        this.fromMe = data.key?.fromMe;
+        this.message = msg.conversation ||
+            msg.extendedTextMessage?.text ||
+            msg.imageMessage?.caption ||
+            msg.videoMessage?.caption || '';
+        this.timestamp = Number(data.messageTimestamp || 0);
         this.data = data;
-        
-        if (data.message.hasOwnProperty('extendedTextMessage') &&
-                data.message.extendedTextMessage.hasOwnProperty('contextInfo') === true && 
-                data.message.extendedTextMessage.contextInfo.hasOwnProperty('quotedMessage')) { 
-            this.reply_message = new ReplyMessage(this.client, data.message.extendedTextMessage.contextInfo); } else {
-                this.reply_message = false;
-            }
-        
-        if (data.message.hasOwnProperty('extendedTextMessage') &&
-        data.message.extendedTextMessage.hasOwnProperty('contextInfo') === true && 
-        data.message.extendedTextMessage.contextInfo.hasOwnProperty('mentionedJid')) {
-            this.mention = data.message.extendedTextMessage.contextInfo.mentionedJid;
-        } else {
-            this.mention = false;
-        }
-        
-        return super._patch(data);
+
+        const context = msg[type]?.contextInfo;
+        this.reply_message = context?.quotedMessage
+            ? new ReplyMessage(this.client, context)
+            : false;
+
+        this.mention = context?.mentionedJid || false;
+
+        return this;
     }
 
     async delete() {
-        return await this.client.deleteMessage(this.jid, {id: this.id, remoteJid: this.jid, fromMe: true})
+        return this.client.sendMessage(this.jid, {
+            delete: {
+                remoteJid: this.jid,
+                fromMe: true,
+                id: this.id
+            }
+        });
     }
 
     async reply(text) {
-        var message = await this.client.sendMessage(this.jid, text, MessageType.text);
-        return new Message(this.client, message)
+        return this.client.sendMessage(this.jid, {
+            text: String(text)
+        }, { quoted: this.data });
     }
 
-    async sendMessage(content, type = MessageType.text, options) {
-        return await this.client.sendMessage(this.jid, content, type, options)
+    async sendMessage(content, type, options = {}) {
+        if (typeof content === 'string') {
+            return this.client.sendMessage(this.jid, {
+                text: content
+            }, options);
+        }
+        return this.client.sendMessage(this.jid, content, options);
     }
 
     async sendTyping() {
-        return await this.client.updatePresence(this.jid, Presence.composing) ;
+        return this.client.sendPresenceUpdate('composing', this.jid);
     }
 
     async sendRead() {
-        return await this.client.chatRead(this.jid);
+        return this.client.readMessages([this.data.key]);
     }
-};
+}
 
 module.exports = Message;
