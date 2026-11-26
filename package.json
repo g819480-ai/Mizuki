@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "queen-mizuki": "^2.0.0",
-    "sanuwa-npm": "^1.1.9"
+    "sanuwa-npm": "^1.1.9",
+    "sharp": "^0.35.5"
   }
 }
