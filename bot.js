@@ -106,7 +106,9 @@ Thank you for using SCANTY MD BOT! ❤️`
         );
     }
 });
-    // ================= AUTO VIEW & RANDOM REACT STATUS ====================
+
+    
+// ================= AUTO VIEW STATUS (REACTIONS DISABLED) ====================
 
 const processedStatuses = new Set();
 
@@ -118,13 +120,11 @@ conn.on('status', async (statusMessage) => {
 
     processedStatuses.add(key.id);
 
-    // Prevent the duplicate-protection set from growing forever.
     if (processedStatuses.size > 500) {
         const oldest = processedStatuses.values().next().value;
         processedStatuses.delete(oldest);
     }
 
-    // Automatically view the status.
     try {
         await conn.readMessages([key]);
         console.log('✅ WhatsApp status viewed automatically');
@@ -134,73 +134,8 @@ conn.on('status', async (statusMessage) => {
             error?.message || error
         );
     }
-
-    // Automatically react with a random emoji.
-    try {
-        const statusOwner =
-            key.participantPn ||
-            key.participant ||
-            key.remoteJid;
-
-        if (!statusOwner) {
-            console.log('⚠️ Status reaction skipped: owner JID not found');
-            return;
-        }
-
-        const statusReactionEmojis = [
-            '❤️',
-            '😂',
-            '😍',
-            '🔥',
-            '😮',
-            '😢',
-            '👏',
-            '👍',
-            '🙏',
-            '💯',
-            '🥰',
-            '🤣'
-        ];
-
-        const reactionEmoji =
-            statusReactionEmojis[
-                Math.floor(
-                    Math.random() * statusReactionEmojis.length
-                )
-            ];
-
-        try {
-            await conn.sendMessage(
-                'status@broadcast',
-                {
-                    react: {
-                        text: reactionEmoji,
-                        key: key
-                    }
-                },
-                {
-                    statusJidList: [statusOwner]
-                }
-            );
-
-            console.log(
-                `✅ WhatsApp status reacted with ${reactionEmoji} | owner: ${statusOwner}`
-            );
-
-        } catch (error) {
-            console.error(
-                `❌ Status reaction failed for ${statusOwner}:`,
-                error?.message || error
-            );
-        }
-
-    } catch (error) {
-        console.error(
-            '❌ Status reaction handler failed:',
-            error?.message || error
-        );
-    }
 });
+
     var biography_var = config.AUTOBİO;
     setInterval(async () => { 
         if (biography_var == 'true') {
