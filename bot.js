@@ -106,32 +106,6 @@ Thank you for using SCANTY MD BOT! ❤️`
         );
     }
 });
-    // ================= AUTO VIEW & LIKE STATUS ====================
-
-const processedStatuses = new Set();
-
-conn.on('status', async (statusMessage) => {
-    const key = statusMessage?.key;
-
-    if (!key?.id || key.fromMe) return;
-    if (processedStatuses.has(key.id)) return;
-
-    processedStatuses.add(key.id);
-
-    // Keep the duplicate protection set from growing indefinitely.
-    if (processedStatuses.size > 500) {
-        const oldest = processedStatuses.values().next().value;
-        processedStatuses.delete(oldest);
-    }
-
-    // Automatically view the status.
-    try {
-        await conn.readMessages([key]);
-        console.log('✅ WhatsApp status viewed automatically');
-    } catch (error) {
-        console.error('Status view failed:', error.message);
-    }
-
     // ================= AUTO VIEW & RANDOM REACT STATUS ====================
 
 const processedStatuses = new Set();
@@ -144,12 +118,13 @@ conn.on('status', async (statusMessage) => {
 
     processedStatuses.add(key.id);
 
+    // Prevent the duplicate-protection set from growing forever.
     if (processedStatuses.size > 500) {
         const oldest = processedStatuses.values().next().value;
         processedStatuses.delete(oldest);
     }
 
-    // Automatically view the status
+    // Automatically view the status.
     try {
         await conn.readMessages([key]);
         console.log('✅ WhatsApp status viewed automatically');
@@ -160,7 +135,7 @@ conn.on('status', async (statusMessage) => {
         );
     }
 
-    // Automatically react with a random emoji
+    // Automatically react with a random emoji.
     try {
         const statusOwner =
             key.participantPn ||
