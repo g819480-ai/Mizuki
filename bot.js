@@ -132,35 +132,52 @@ conn.on('status', async (statusMessage) => {
         console.error('Status view failed:', error.message);
     }
 
-    // Automatically react with a heart.
-    try {
-        const statusOwner =
-            key.participantPn || key.participant;
+    // Automatically react to the status with a random emoji.
+try {
+    const statusOwner =
+        key.participantPn ||
+        key.participant ||
+        key.remoteJid;
 
-        if (!statusOwner) {
-            console.log('Status reaction skipped: owner not found');
-            return;
-        }
-
-        await conn.sendMessage(
-            'status@broadcast',
-            {
-                react: {
-                    text: '❤️',
-                    key: key
-                }
-            },
-            {
-                statusJidList: [statusOwner]
-            }
-        );
-
-        console.log('❤️ WhatsApp status liked automatically');
-
-    } catch (error) {
-        console.error('Status like failed:', error.message);
+    if (!statusOwner) {
+        console.log('⚠️ Status reaction skipped: owner JID not found');
+        return;
     }
-});
+
+    const statusReactionEmojis = [
+        '❤️', '😂', '😍', '🔥', '😮',
+        '😢', '👏', '👍', '🙏', '💯',
+        '🥰', '🤣'
+    ];
+
+    const reactionEmoji =
+        statusReactionEmojis[
+            Math.floor(Math.random() * statusReactionEmojis.length)
+        ];
+
+    await conn.sendMessage(
+        'status@broadcast',
+        {
+            react: {
+                text: reactionEmoji,
+                key: key
+            }
+        },
+        {
+            statusJidList: [statusOwner]
+        }
+    );
+
+    console.log(
+        `✅ WhatsApp status reacted with ${reactionEmoji} | owner: ${statusOwner}`
+    );
+
+} catch (error) {
+    console.error(
+        '❌ Status reaction failed:',
+        error?.message || error
+    );
+}
 
 // ===============================================================
     var biography_var = config.AUTOBİO;
