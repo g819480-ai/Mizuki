@@ -132,54 +132,53 @@ conn.on('status', async (statusMessage) => {
         console.error('Status view failed:', error.message);
     }
 
-    // Automatically react to the status with a random emoji.
-try {
-    const statusOwner =
-        key.participantPn ||
-        key.participant ||
-        key.remoteJid;
+        // Automatically react to the status with a random emoji.
+    try {
+        const statusOwner =
+            key.participantPn ||
+            key.participant ||
+            key.remoteJid;
 
-    if (!statusOwner) {
-        console.log('⚠️ Status reaction skipped: owner JID not found');
-        return;
-    }
+        if (!statusOwner) {
+            console.log('⚠️ Status reaction skipped: owner JID not found');
+            return;
+        }
 
-    const statusReactionEmojis = [
-        '❤️', '😂', '😍', '🔥', '😮',
-        '😢', '👏', '👍', '🙏', '💯',
-        '🥰', '🤣'
-    ];
-
-    const reactionEmoji =
-        statusReactionEmojis[
-            Math.floor(Math.random() * statusReactionEmojis.length)
+        const statusReactionEmojis = [
+            '❤️', '😂', '😍', '🔥', '😮',
+            '😢', '👏', '👍', '🙏', '💯',
+            '🥰', '🤣'
         ];
 
-    await conn.sendMessage(
-        'status@broadcast',
-        {
-            react: {
-                text: reactionEmoji,
-                key: key
+        const reactionEmoji =
+            statusReactionEmojis[
+                Math.floor(Math.random() * statusReactionEmojis.length)
+            ];
+
+        await conn.sendMessage(
+            'status@broadcast',
+            {
+                react: {
+                    text: reactionEmoji,
+                    key: key
+                }
+            },
+            {
+                statusJidList: [statusOwner]
             }
-        },
-        {
-            statusJidList: [statusOwner]
-        }
-    );
+        );
 
-    console.log(
-        `✅ WhatsApp status reacted with ${reactionEmoji} | owner: ${statusOwner}`
-    );
+        console.log(
+            `✅ WhatsApp status reacted with ${reactionEmoji} | owner: ${statusOwner}`
+        );
 
-} catch (error) {
-    console.error(
-        '❌ Status reaction failed:',
-        error?.message || error
-    );
-}
-
-// ===============================================================
+    } catch (error) {
+        console.error(
+            '❌ Status reaction failed:',
+            error?.message || error
+        );
+    }
+});
     var biography_var = config.AUTOBİO;
     setInterval(async () => { 
         if (biography_var == 'true') {
