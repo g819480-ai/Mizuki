@@ -1,3 +1,4 @@
+
 'use strict';
 
 const EventEmitter = require('events');
@@ -78,9 +79,23 @@ class LegacyClient extends EventEmitter {
             }
         });
 
-
+        // WhatsApp connection and QR updates
         this.socket.ev.on('connection.update', update => {
-            const { connection, lastDisconnect } = update;
+            const {
+                connection,
+                lastDisconnect,
+                qr
+            } = update;
+
+            // Forward every new QR code to the dashboard
+            if (qr) {
+                console.log('New WhatsApp QR received');
+                this.emit('qr', qr);
+            }
+
+            if (connection === 'connecting') {
+                this.emit('connecting');
+            }
 
             if (connection === 'open') {
                 const current = this.socket.user || {};
@@ -94,6 +109,9 @@ class LegacyClient extends EventEmitter {
                 };
 
                 console.log('SCANTY MD BOT connected to WhatsApp');
+
+                // Clear the old QR when connected
+                this.emit('qr', null);
                 this.emit('open');
             }
 
@@ -109,6 +127,7 @@ class LegacyClient extends EventEmitter {
             }
         });
 
+        // Incoming WhatsApp messages
         this.socket.ev.on('messages.upsert', event => {
             if (!event.messages?.length) return;
 
@@ -136,6 +155,27 @@ class LegacyClient extends EventEmitter {
         });
 
         return this.socket;
+    }
+
+    // Generate a WhatsApp pairing code
+    async requestPairingCode(phoneNumber) {
+        if (!this.socket) {
+            throw new Error('WhatsApp socket is not ready');
+        }
+
+        if (this.authStorage?.state?.creds?.registered) {
+            throw new Error('WhatsApp is already registered');
+        }
+
+        const number = String(phoneNumber || '').replace(/\D/g, '');
+
+        if (!number) {
+            throw new Error(
+                'Enter a valid phone number with country code'
+            );
+        }
+
+        return this.socket.requestPairingCode(number);
     }
 
     async sendMessage(jid, content, typeOrOptions, oldOptions) {
@@ -264,7 +304,10 @@ class LegacyClient extends EventEmitter {
         try {
             await this.authStorage?.close();
         } catch (error) {
-            console.error('MongoDB close failed:', error.message);
+            console.error(
+                'MongoDB close failed:',
+                error.message
+            );
         }
     }
 }
@@ -275,6 +318,3 @@ module.exports = {
     Mimetype,
     Presence
 };
-
-
-    
