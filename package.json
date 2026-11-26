@@ -1,7 +1,7 @@
 {
-	"name": "sanuwa-mizuki",
+	"name": "scanty-md",
 	"version": "1.0.0",
-	"description": "Mizuki project - a Whatsapp userbot helping to improve your Whatsapp experience.",
+	"description": "Scanty project - a Whatsapp userbot helping to improve your Whatsapp experience.",
 	"main": "./Mizuki/bot.js",
 	"scripts": {
 	  "start": "supervisor -s bot.js"
