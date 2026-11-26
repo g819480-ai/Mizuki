@@ -28,8 +28,19 @@ const {
  * - whatsapp_auth
  * - whatsapp_auth_keys
  */
+'use strict';
 
-async function useMongoDBAuthState() {
+const { MongoClient } = require('mongodb');
+
+
+ async function useMongoDBAuthState() {
+
+    const {
+        initAuthCreds,
+        BufferJSON,
+        proto
+    } = await import('@whiskeysockets/baileys');
+
     const uri = process.env.MONGO_URI;
 
     if (!uri) {
@@ -193,13 +204,20 @@ async function useMongoDBAuthState() {
 
             for (const id of ids) {
 
-                let value =
-                    stored.has(id)
-                        ? deserialize(
-                            stored.get(id)
-                        )
-                        : undefined;
+    let value =
+        stored.has(id)
+            ? deserialize(stored.get(id))
+            : undefined;
 
+    if (
+        type === 'app-state-sync-key' &&
+        value
+    ) {
+        value = proto.Message.AppStateSyncKeyData.create(value);
+    }
+
+    result[id] = value;
+}
                 /*
                  * Baileys expects app-state-sync-key
                  * values as AppStateSyncKeyData.
