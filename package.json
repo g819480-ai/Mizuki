@@ -1,3 +1,4 @@
+
 {
   "name": "scanty-md",
   "version": "1.0.0",
@@ -14,7 +15,8 @@
     "sanuwa-npm": "1.1.9",
     "@whiskeysockets/baileys": "6.7.24",
     "mongodb": "^6.20.0",
-    "pino": "^9.6.0"
+    "pino": "^9.6.0",
+    "qrcode": "^1.5.4"
   },
   "overrides": {
     "sharp": "^0.35.5"
