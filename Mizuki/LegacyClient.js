@@ -1,4 +1,4 @@
-'use strict';
+
 /*
 
 * ==========================================================
@@ -14,20 +14,23 @@
 * ==========================================================
     */
 
+'use strict';
+
 const EventEmitter = require('events');
 const fs = require('fs');
 const pino = require('pino');
-const {
-default: makeWASocket,
-downloadMediaMessage,
-Browsers,
-DisconnectReason,
-makeCacheableSignalKeyStore
-} = require(’@whiskeysockets/baileys’);
 
 const {
-useMongoDBAuthState
-} = require(’./mongoAuth’);
+    default: makeWASocket,
+    downloadMediaMessage,
+    Browsers,
+    DisconnectReason,
+    makeCacheableSignalKeyStore
+} = require('@whiskeysockets/baileys');
+
+const {
+    useMongoDBAuthState
+} = require('./mongoAuth');
 
 /*
 
