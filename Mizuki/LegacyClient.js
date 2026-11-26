@@ -195,9 +195,18 @@ class LegacyClient extends EventEmitter {
     }
 
     async updatePresence(jid, presence) {
-        if (!this.socket) return false;
-        return this.socket.sendPresenceUpdate(presence, jid);
-    }
+    if (!this.socket) return false;
+    return this.socket.sendPresenceUpdate(presence, jid);
+}
+
+async sendPresenceUpdate(presence, jid) {
+    return this.updatePresence(jid, presence);
+}
+
+async readMessages(keys) {
+    if (!this.socket) return false;
+    return this.socket.readMessages(keys);
+}
 
     async chatRead(jid) {
         if (!this.socket) return false;
