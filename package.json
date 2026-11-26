@@ -1,3 +1,4 @@
+
 {
   "name": "scanty-md",
   "version": "1.0.0",
@@ -10,8 +11,9 @@
     "node": "20.x"
   },
   "dependencies": {
-    "queen-mizuki": "^2.0.0",
-    "sanuwa-npm": "^1.1.9"
+    "queen-mizuki": "2.0.1",
+    "sanuwa-npm": "1.1.9",
+    "@adiwajshing/baileys": "3.5.3"
   },
   "overrides": {
     "sharp": "^0.35.5"
