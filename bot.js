@@ -930,11 +930,6 @@ try {
 } catch (error) {
     console.error('SCANTY MD BOT connection failed:', error);
 }
-    } catch {
-        if (!nodb) {
-            console.log(chalk.red.bold('Refreshing your old version string...'))
-            conn.loadAuthInfo(Session.deCrypt(config.SESSION)); 
-            try {
                 await conn.connect();
             } catch {
                 return;
