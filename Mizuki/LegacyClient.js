@@ -7,12 +7,28 @@ const pino = require('pino');
 const {
     default: makeWASocket,
     downloadMediaMessage,
-    Browsers,
     DisconnectReason,
     makeCacheableSignalKeyStore
 } = require('@whiskeysockets/baileys');
 
 const { useMongoDBAuthState } = require('./mongoAuth');
+
+
+/*
+ * ==========================================================
+ * SCANTY MD BOT
+ * LEGACY CLIENT
+ *
+ * MongoDB-backed Baileys client.
+ *
+ * IMPORTANT:
+ * - MongoDB remains the persistent auth store.
+ * - Existing auth data is NOT deleted here.
+ * - Baileys 6.7.24 remains supported.
+ * - The existing bot.js chat-update interface is preserved.
+ * ==========================================================
+ */
+
 
 const MessageType = {
     text: 'text',
@@ -20,10 +36,12 @@ const MessageType = {
     video: 'video'
 };
 
+
 const Mimetype = {
     png: 'image/png',
     gif: 'image/gif'
 };
+
 
 const Presence = {
     available: 'available',
@@ -32,38 +50,51 @@ const Presence = {
     recording: 'recording'
 };
 
+
 const sleep = ms =>
     new Promise(resolve => setTimeout(resolve, ms));
 
+
 /*
  * ==========================================================
- * SCANTY MD BOT
- * Baileys retry counter cache
- *
- * Kept outside the socket so retry counts survive
- * socket recreation/reconnects.
+ * BAILEYS RETRY COUNTER CACHE
  * ==========================================================
  */
 
 const msgRetryCounterCache = new Map();
 
 const retryCache = {
+
     get(key) {
         return msgRetryCounterCache.get(key);
     },
 
     set(key, value) {
-        msgRetryCounterCache.set(key, value);
+
+        msgRetryCounterCache.set(
+            key,
+            value
+        );
 
         /*
-         * Prevent unlimited memory growth.
+         * Prevent unlimited memory usage.
          */
-        if (msgRetryCounterCache.size > 5000) {
-            const oldestKey =
-                msgRetryCounterCache.keys().next().value;
+        if (
+            msgRetryCounterCache.size > 5000
+        ) {
 
-            if (oldestKey !== undefined) {
-                msgRetryCounterCache.delete(oldestKey);
+            const oldestKey =
+                msgRetryCounterCache
+                    .keys()
+                    .next()
+                    .value;
+
+            if (
+                oldestKey !== undefined
+            ) {
+                msgRetryCounterCache.delete(
+                    oldestKey
+                );
             }
         }
 
@@ -71,118 +102,205 @@ const retryCache = {
     },
 
     del(key) {
-        msgRetryCounterCache.delete(key);
+
+        msgRetryCounterCache.delete(
+            key
+        );
+
         return true;
     },
 
     flushAll() {
+
         msgRetryCounterCache.clear();
+
+        return true;
     }
 };
 
+
 /*
  * ==========================================================
- * MESSAGE RETRY STORE
+ * ORIGINAL MESSAGE RETRY STORE
  *
- * Baileys needs the ORIGINAL message payload when WhatsApp
- * requests a retry after decryption/encryption failure.
+ * Baileys may request an original message when
+ * WhatsApp asks for a retry.
  *
- * Key format:
- *     remoteJid:messageId
+ * We retain the actual IMessage payload.
  * ==========================================================
  */
 
 const messageRetryStore = new Map();
 
+
 const makeMessageStoreKey = key => {
-    if (!key?.remoteJid || !key?.id) {
+
+    if (
+        !key?.remoteJid ||
+        !key?.id
+    ) {
         return null;
     }
 
     return `${key.remoteJid}:${key.id}`;
 };
 
-const storeMessageForRetry = message => {
-    const key = makeMessageStoreKey(message?.key);
 
-    if (!key || !message?.message) {
+const storeMessageForRetry = message => {
+
+    const cacheKey =
+        makeMessageStoreKey(
+            message?.key
+        );
+
+    if (
+        !cacheKey ||
+        !message?.message
+    ) {
         return;
     }
 
-    /*
-     * Store only the actual IMessage payload because
-     * getMessage() must return proto.IMessage.
-     */
     messageRetryStore.set(
-        key,
+        cacheKey,
         message.message
     );
 
     /*
      * Prevent unlimited memory growth.
      */
-    if (messageRetryStore.size > 5000) {
-        const oldestKey =
-            messageRetryStore.keys().next().value;
+    if (
+        messageRetryStore.size > 5000
+    ) {
 
-        if (oldestKey !== undefined) {
-            messageRetryStore.delete(oldestKey);
+        const oldestKey =
+            messageRetryStore
+                .keys()
+                .next()
+                .value;
+
+        if (
+            oldestKey !== undefined
+        ) {
+
+            messageRetryStore.delete(
+                oldestKey
+            );
         }
     }
 };
 
+
 const getMessageForRetry = async key => {
+
     const cacheKey =
-        makeMessageStoreKey(key);
+        makeMessageStoreKey(
+            key
+        );
 
     if (!cacheKey) {
         return undefined;
     }
 
-    return messageRetryStore.get(cacheKey);
+    return messageRetryStore.get(
+        cacheKey
+    );
 };
 
+
+/*
+ * ==========================================================
+ * LEGACY CLIENT
+ * ==========================================================
+ */
+
 class LegacyClient extends EventEmitter {
+
     constructor() {
+
         super();
 
         this.socket = null;
+
         this.user = null;
-        this.version = [2, 3000, 0];
-        this.logger = { level: 'warn' };
 
-        this.chats = new Map();
+        this.version = [
+            2,
+            3000,
+            0
+        ];
 
-        /*
-         * Last message per chat.
-         * Kept for existing chatRead() compatibility.
-         */
-        this.lastMessages = new Map();
+        this.logger = {
+            level: 'warn'
+        };
 
-        this.authStorage = null;
+        this.chats =
+            new Map();
 
-        this.reconnectTimer = null;
-        this.reconnectAttempts = 0;
-        this.connectingPromise = null;
-        this.shouldReconnect = true;
-        this.connectionOpen = false;
+        this.lastMessages =
+            new Map();
+
+        this.authStorage =
+            null;
+
+        this.reconnectTimer =
+            null;
+
+        this.reconnectAttempts =
+            0;
+
+        this.connectingPromise =
+            null;
+
+        this.shouldReconnect =
+            true;
+
+        this.connectionOpen =
+            false;
     }
+
+
+    /*
+     * ======================================================
+     * COMPATIBILITY METHODS
+     * ======================================================
+     */
 
     loadAuthInfo() {
         return true;
     }
 
+
     base64EncodedAuthInfo() {
         return null;
     }
 
-    async connect() {
-        this.shouldReconnect = true;
 
-        if (this.connectingPromise) {
+    /*
+     * ======================================================
+     * CONNECT
+     * ======================================================
+     */
+
+    async connect() {
+
+        this.shouldReconnect =
+            true;
+
+        /*
+         * Prevent multiple simultaneous
+         * socket creation attempts.
+         */
+        if (
+            this.connectingPromise
+        ) {
+
             return this.connectingPromise;
         }
 
+
+        /*
+         * Already connected.
+         */
         if (
             this.socket &&
             (
@@ -190,411 +308,663 @@ class LegacyClient extends EventEmitter {
                 this.socket.ws?.readyState === 1
             )
         ) {
+
             return this.socket;
         }
 
-        this.connectingPromise = (async () => {
 
-            if (!this.authStorage) {
-                this.authStorage =
-                    await useMongoDBAuthState();
-            }
+        this.connectingPromise =
+            (async () => {
 
-            this.emit('connecting');
-            this.connectionOpen = false;
+                /*
+                 * Create/reuse MongoDB auth state.
+                 */
+                if (
+                    !this.authStorage
+                ) {
 
-            /*
-             * IMPORTANT:
-             *
-             * Do NOT pass authStorage.state directly.
-             *
-             * Baileys expects:
-             *
-             * auth.creds
-             * auth.keys = makeCacheableSignalKeyStore(...)
-             *
-             * The cache prevents repeated direct MongoDB
-             * Signal-key reads and keeps the Signal store
-             * consistent during active sessions.
-             */
-            const authState = {
-                creds:
-                    this.authStorage.state.creds,
+                    console.log(
+                        'Loading SCANTY MD BOT MongoDB authentication...'
+                    );
 
-                keys:
-                    makeCacheableSignalKeyStore(
-                        this.authStorage.state.keys,
-                        pino({
-                            level:
-                                this.logger.level ||
-                                'warn'
-                        })
-                    )
-            };
+                    this.authStorage =
+                        await useMongoDBAuthState();
 
-            const socket =
-                makeWASocket({
-
-                    auth: authState,
-
-                    browser: ['Ubuntu', 'Chrome', '120.0.0'],
-
-                    printQRInTerminal:
-                        false,
-
-                    markOnlineOnConnect:
-                        false,
-
-                    syncFullHistory:
-                        false,
-
-                    /*
-                     * Retry configuration.
-                     */
-                    msgRetryCounterCache:
-                        retryCache,
-
-                    maxMsgRetryCount:
-                        5,
-
-                    retryRequestDelayMs:
-                        500,
-
-                    /*
-                     * CRITICAL:
-                     *
-                     * Return the original message when
-                     * WhatsApp asks Baileys to retry it.
-                     */
-                    getMessage:
-                        async key => {
-                            return getMessageForRetry(
-                                key
-                            );
-                        },
-
-                    logger:
-                        pino({
-                            level:
-                                this.logger.level ||
-                                'warn'
-                        })
-                });
-
-            this.socket = socket;
-
-            /*
-             * Save credentials and Signal keys whenever
-             * Baileys updates them.
-             */
-            socket.ev.on(
-                'creds.update',
-                async () => {
-                    try {
-                        await this.authStorage.saveCreds();
-                    } catch (error) {
-                        console.error(
-                            'MongoDB auth save failed:',
-                            error?.message ||
-                            error
-                        );
-                    }
+                    console.log(
+                        'SCANTY MD BOT MongoDB authentication loaded'
+                    );
                 }
-            );
 
-            /*
-             * ==================================================
-             * CONNECTION UPDATE
-             * ==================================================
-             */
 
-            socket.ev.on(
-                'connection.update',
-                update => {
+                this.connectionOpen =
+                    false;
 
-                    if (
-                        this.socket !== socket
-                    ) {
-                        return;
-                    }
+                this.emit(
+                    'connecting'
+                );
 
-                    const {
-                        connection,
-                        lastDisconnect,
-                        qr
-                    } = update;
 
-                    /*
-                     * QR generated by Baileys.
-                     */
-                    if (qr) {
-                        console.log(
-                            'New WhatsApp QR received'
-                        );
+                /*
+                 * ==================================================
+                 * BAILEYS AUTH STATE
+                 * ==================================================
+                 *
+                 * Do not pass the raw key store directly.
+                 *
+                 * Baileys recommends a cacheable Signal key store
+                 * because Signal sessions and keys are frequently
+                 * read/updated while messages are processed.
+                 */
+                const authState = {
 
-                        this.emit(
-                            'qr',
-                            qr
-                        );
-                    }
+                    creds:
+                        this.authStorage
+                            .state
+                            .creds,
 
-                    if (
-                        connection ===
-                        'connecting'
-                    ) {
-                        this.emit(
-                            'connecting'
-                        );
-                    }
+                    keys:
+                        makeCacheableSignalKeyStore(
+                            this.authStorage
+                                .state
+                                .keys,
 
-                    /*
-                     * ==================================================
-                     * WHATSAPP OPEN
-                     * ==================================================
-                     */
+                            pino({
+                                level:
+                                    this.logger
+                                        .level ||
+                                    'warn'
+                            })
+                        )
+                };
 
-                    if (
-                        connection ===
-                        'open'
-                    ) {
 
-                        this.connectionOpen =
-                            true;
+                /*
+                 * ==================================================
+                 * CREATE WHATSAPP SOCKET
+                 * ==================================================
+                 */
 
-                        this.reconnectAttempts =
-                            0;
+                const socket =
+                    makeWASocket({
 
-                        if (
-                            this.reconnectTimer
-                        ) {
-                            clearTimeout(
-                                this.reconnectTimer
-                            );
+                        auth:
+                            authState,
 
-                            this.reconnectTimer =
-                                null;
-                        }
-
-                        const current =
-                            socket.user ||
-                            {};
-
-                        this.user = {
-                            ...current,
-
-                            jid:
-                                current.id ||
-                                current.jid ||
-                                '',
-
-                            phone: {
-                                wa_version:
-                                    '0.0.0'
-                            }
-                        };
-
-                        console.log(
-                            'SCANTY MD BOT connected to WhatsApp'
-                        );
 
                         /*
-                         * QR is no longer needed once
-                         * WhatsApp is actually open.
+                         * WhatsApp linked-device browser label.
+                         *
+                         * This is intentionally NOT:
+                         *
+                         * Browsers.ubuntu(...)
+                         *
+                         * because you requested Chrome/Ubuntu.
                          */
-                        this.emit(
-                            'qr',
-                            null
-                        );
+                        browser:
+                            [
+                                'Ubuntu',
+                                'Chrome',
+                                '120.0.0'
+                            ],
 
-                        this.emit(
-                            'open'
-                        );
-                    }
 
-                    /*
-                     * ==================================================
-                     * WHATSAPP CLOSED
-                     * ==================================================
-                     */
+                        printQRInTerminal:
+                            false,
 
-                    if (
-                        connection ===
-                        'close'
-                    ) {
-
-                        this.connectionOpen =
-                            false;
-
-                        const error =
-                            lastDisconnect?.error;
-
-                        const statusCode =
-                            error?.output
-                                ?.statusCode;
-
-                        console.error(
-                            'WhatsApp connection closed:',
-                            error?.message ||
-                            'Connection closed',
-                            'Status:',
-                            statusCode ||
-                            'unknown'
-                        );
-
-                        this.emit(
-                            'qr',
-                            null
-                        );
-
-                        this.emit(
-                            'close',
-                            error
-                        );
 
                         /*
-                         * Logged-out accounts require
-                         * fresh authentication.
+                         * Do not force WhatsApp
+                         * into online mode.
                          */
-                        if (
-                            statusCode ===
-                            DisconnectReason.loggedOut
-                        ) {
+                        markOnlineOnConnect:
+                            false,
+
+
+                        syncFullHistory:
+                            false,
+
+
+                        /*
+                         * Retry handling.
+                         */
+                        msgRetryCounterCache:
+                            retryCache,
+
+                        maxMsgRetryCount:
+                            5,
+
+                        retryRequestDelayMs:
+                            500,
+
+
+                        /*
+                         * Original message lookup.
+                         */
+                        getMessage:
+                            async key => {
+
+                                return getMessageForRetry(
+                                    key
+                                );
+                            },
+
+
+                        logger:
+                            pino({
+                                level:
+                                    this.logger
+                                        .level ||
+                                    'warn'
+                            })
+                    });
+
+
+                this.socket =
+                    socket;
+
+
+                /*
+                 * ==================================================
+                 * CREDENTIAL UPDATES
+                 * ==================================================
+                 *
+                 * Signal keys are updated during normal
+                 * message processing, so persistence is essential.
+                 */
+                socket.ev.on(
+                    'creds.update',
+                    async () => {
+
+                        try {
+
+                            await this.authStorage
+                                .saveCreds();
+
+                        } catch (error) {
 
                             console.error(
-                                'WhatsApp logged out. Fresh linking is required.'
+                                'SCANTY MD BOT MongoDB auth save failed:',
+                                error?.message ||
+                                error
+                            );
+                        }
+                    }
+                );
+
+
+                /*
+                 * ==================================================
+                 * CONNECTION UPDATE
+                 * ==================================================
+                 */
+
+                socket.ev.on(
+                    'connection.update',
+                    update => {
+
+                        /*
+                         * Ignore events from an old socket
+                         * after a reconnect.
+                         */
+                        if (
+                            this.socket !==
+                            socket
+                        ) {
+
+                            return;
+                        }
+
+
+                        const {
+                            connection,
+                            lastDisconnect,
+                            qr
+                        } = update;
+
+
+                        /*
+                         * ==========================================
+                         * QR
+                         * ==========================================
+                         */
+
+                        if (
+                            qr
+                        ) {
+
+                            console.log(
+                                'SCANTY MD BOT: new WhatsApp QR received'
+                            );
+
+                            this.emit(
+                                'qr',
+                                qr
+                            );
+                        }
+
+
+                        /*
+                         * ==========================================
+                         * CONNECTING
+                         * ==========================================
+                         */
+
+                        if (
+                            connection ===
+                            'connecting'
+                        ) {
+
+                            this.connectionOpen =
+                                false;
+
+                            this.emit(
+                                'connecting'
+                            );
+                        }
+
+
+                        /*
+                         * ==========================================
+                         * OPEN
+                         * ==========================================
+                         */
+
+                        if (
+                            connection ===
+                            'open'
+                        ) {
+
+                            this.connectionOpen =
+                                true;
+
+                            this.reconnectAttempts =
+                                0;
+
+
+                            if (
+                                this.reconnectTimer
+                            ) {
+
+                                clearTimeout(
+                                    this.reconnectTimer
+                                );
+
+                                this.reconnectTimer =
+                                    null;
+                            }
+
+
+                            const currentUser =
+                                socket.user ||
+                                {};
+
+
+                            this.user = {
+
+                                ...currentUser,
+
+                                jid:
+                                    currentUser.id ||
+                                    currentUser.jid ||
+                                    '',
+
+                                phone: {
+                                    wa_version:
+                                        '0.0.0'
+                                }
+                            };
+
+
+                            console.log(
+                                '================================================'
+                            );
+
+                            console.log(
+                                'SCANTY MD BOT connected to WhatsApp'
+                            );
+
+                            console.log(
+                                `WhatsApp JID: ${this.user.jid || 'unknown'}`
+                            );
+
+                            console.log(
+                                'Browser: Google Chrome (Ubuntu)'
+                            );
+
+                            console.log(
+                                'MongoDB auth: active'
+                            );
+
+                            console.log(
+                                '================================================'
+                            );
+
+
+                            /*
+                             * A QR should no longer be displayed
+                             * after the socket is genuinely open.
+                             */
+                            this.emit(
+                                'qr',
+                                null
+                            );
+
+
+                            this.emit(
+                                'open'
+                            );
+                        }
+
+
+                        /*
+                         * ==========================================
+                         * CLOSED
+                         * ==========================================
+                         */
+
+                        if (
+                            connection ===
+                            'close'
+                        ) {
+
+                            this.connectionOpen =
+                                false;
+
+
+                            const error =
+                                lastDisconnect?.error;
+
+
+                            const statusCode =
+                                error
+                                    ?.output
+                                    ?.statusCode;
+
+
+                            console.error(
+                                'SCANTY MD BOT WhatsApp connection closed:',
+                                error?.message ||
+                                'Connection closed'
+                            );
+
+                            console.error(
+                                'WhatsApp status code:',
+                                statusCode ||
+                                'unknown'
+                            );
+
+
+                            this.emit(
+                                'qr',
+                                null
+                            );
+
+
+                            this.emit(
+                                'close',
+                                error
+                            );
+
+
+                            /*
+                             * A logged-out account must
+                             * be linked again.
+                             */
+                            if (
+                                statusCode ===
+                                DisconnectReason.loggedOut
+                            ) {
+
+                                console.error(
+                                    'SCANTY MD BOT: WhatsApp logged out. Fresh linking is required.'
+                                );
+
+                                return;
+                            }
+
+
+                            /*
+                             * Do not reconnect if the
+                             * application deliberately
+                             * closed the client.
+                             */
+                            if (
+                                !this.shouldReconnect
+                            ) {
+
+                                return;
+                            }
+
+
+                            this.scheduleReconnect();
+                        }
+                    }
+                );
+
+
+                /*
+                 * ==================================================
+                 * INCOMING MESSAGES
+                 * ==================================================
+                 */
+
+                socket.ev.on(
+                    'messages.upsert',
+                    event => {
+
+                        /*
+                         * Never assume WhatsApp supplied
+                         * a valid message array.
+                         */
+                        if (
+                            !event ||
+                            !Array.isArray(
+                                event.messages
+                            ) ||
+                            event.messages.length === 0
+                        ) {
+
+                            return;
+                        }
+
+
+                        const usableMessages =
+                            [];
+
+
+                        for (
+                            const message
+                            of event.messages
+                        ) {
+
+                            /*
+                             * Malformed message guard.
+                             */
+                            if (
+                                !message ||
+                                !message.key
+                            ) {
+
+                                continue;
+                            }
+
+
+                            const jid =
+                                message
+                                    .key
+                                    .remoteJid;
+
+
+                            if (!jid) {
+
+                                continue;
+                            }
+
+
+                            /*
+                             * If the message contains an actual
+                             * decrypted payload, retain it for
+                             * retry purposes.
+                             *
+                             * Ciphertext-only/stub messages are
+                             * intentionally not inserted as fake
+                             * plaintext messages.
+                             */
+                            if (
+                                message.message &&
+                                typeof message.message ===
+                                    'object'
+                            ) {
+
+                                storeMessageForRetry(
+                                    message
+                                );
+
+                                usableMessages.push(
+                                    message
+                                );
+
+                            } else {
+
+                                /*
+                                 * A ciphertext/decryption-failure
+                                 * message can still be useful to
+                                 * the status layer, but it must not
+                                 * be passed to bot.js as if it were
+                                 * a normal command message.
+                                 */
+                                console.warn(
+                                    `SCANTY MD BOT: message has no decrypted payload | jid=${jid} | id=${message.key.id || 'unknown'}`
+                                );
+
+                                /*
+                                 * Keep it out of chat-update.
+                                 */
+                                continue;
+                            }
+
+
+                            /*
+                             * Existing chatRead compatibility.
+                             */
+                            this.lastMessages.set(
+                                jid,
+                                message
+                            );
+
+
+                            /*
+                             * WhatsApp status.
+                             */
+                            if (
+                                jid ===
+                                'status@broadcast'
+                            ) {
+
+                                this.emit(
+                                    'status',
+                                    message
+                                );
+                            }
+
+
+                            /*
+                             * Register chat.
+                             */
+                            if (
+                                !this.chats.has(
+                                    jid
+                                )
+                            ) {
+
+                                this.chats.set(
+                                    jid,
+                                    {
+                                        jid,
+                                        pin:
+                                            undefined
+                                    }
+                                );
+                            }
+                        }
+
+
+                        /*
+                         * CRITICAL:
+                         *
+                         * Do not emit a fake chat-update
+                         * when every message failed decryption.
+                         *
+                         * This prevents bot.js from trying:
+                         *
+                         * Object.keys(msg.message)
+                         *
+                         * against an empty/ciphertext message.
+                         */
+                        if (
+                            usableMessages.length === 0
+                        ) {
+
+                            console.warn(
+                                'SCANTY MD BOT: no decrypted incoming messages available for command processing'
                             );
 
                             return;
                         }
 
-                        /*
-                         * Reconnect after unexpected
-                         * disconnection / QR expiry.
-                         */
-                        this.scheduleReconnect();
-                    }
-                }
-            );
-
-            /*
-             * ==================================================
-             * INCOMING MESSAGES
-             * ==================================================
-             */
-
-            socket.ev.on(
-                'messages.upsert',
-                event => {
-
-                    if (
-                        !event.messages ||
-                        !event.messages.length
-                    ) {
-                        return;
-                    }
-
-                    for (
-                        const message
-                        of event.messages
-                    ) {
-
-                        const jid =
-                            message.key
-                                ?.remoteJid;
-
-                        if (!jid) {
-                            continue;
-                        }
 
                         /*
-                         * Store the ORIGINAL message
-                         * for Baileys retry handling.
-                         *
-                         * This is the important part
-                         * missing from the previous version.
+                         * Preserve the interface expected
+                         * by bot.js.
                          */
-                        storeMessageForRetry(
-                            message
-                        );
+                        this.emit(
+                            'chat-update',
+                            {
 
-                        /*
-                         * Keep existing last-message
-                         * behaviour for chatRead().
-                         */
-                        this.lastMessages.set(
-                            jid,
-                            message
-                        );
+                                hasNewMessage:
+                                    true,
 
-                        /*
-                         * Status handling remains
-                         * exactly through the existing
-                         * status event.
-                         */
-                        if (
-                            jid ===
-                            'status@broadcast'
-                        ) {
+                                count:
+                                    usableMessages
+                                        .length,
 
-                            this.emit(
-                                'status',
-                                message
-                            );
-                        }
+                                messages: {
 
-                        if (
-                            !this.chats.has(
-                                jid
-                            )
-                        ) {
-
-                            this.chats.set(
-                                jid,
-                                {
-                                    jid,
-                                    pin:
-                                        undefined
+                                    all:
+                                        () =>
+                                            usableMessages
                                 }
-                            );
-                        }
-                    }
-
-                    /*
-                     * Preserve the existing bot
-                     * chat-update interface.
-                     */
-                    this.emit(
-                        'chat-update',
-                        {
-                            hasNewMessage:
-                                true,
-
-                            count:
-                                event.messages
-                                    .length,
-
-                            messages: {
-                                all:
-                                    () =>
-                                        event.messages
                             }
-                        }
-                    );
-                }
-            );
+                        );
+                    }
+                );
 
-            return socket;
 
-        })();
+                /*
+                 * Return the newly-created socket.
+                 */
+                return socket;
+
+            })();
+
 
         try {
+
             return await this.connectingPromise;
 
         } finally {
+
             this.connectingPromise =
                 null;
         }
     }
+
+
+    /*
+     * ==========================================================
+     * RECONNECT
+     * ==========================================================
+     */
 
     scheduleReconnect() {
 
@@ -602,10 +972,13 @@ class LegacyClient extends EventEmitter {
             !this.shouldReconnect ||
             this.reconnectTimer
         ) {
+
             return;
         }
 
+
         this.reconnectAttempts++;
+
 
         const delay =
             Math.min(
@@ -618,9 +991,11 @@ class LegacyClient extends EventEmitter {
                 15000
             );
 
+
         console.log(
-            `WhatsApp reconnecting in ${Math.ceil(delay / 1000)} seconds. Attempt ${this.reconnectAttempts}`
+            `SCANTY MD BOT reconnecting in ${Math.ceil(delay / 1000)} seconds. Attempt ${this.reconnectAttempts}`
         );
+
 
         this.reconnectTimer =
             setTimeout(
@@ -629,11 +1004,14 @@ class LegacyClient extends EventEmitter {
                     this.reconnectTimer =
                         null;
 
+
                     if (
                         !this.shouldReconnect
                     ) {
+
                         return;
                     }
+
 
                     try {
 
@@ -642,7 +1020,7 @@ class LegacyClient extends EventEmitter {
                     } catch (error) {
 
                         console.error(
-                            'WhatsApp reconnect failed:',
+                            'SCANTY MD BOT reconnect failed:',
                             error?.message ||
                             error
                         );
@@ -655,10 +1033,21 @@ class LegacyClient extends EventEmitter {
             );
     }
 
+
+    /*
+     * ==========================================================
+     * PAIRING CODE
+     * ==========================================================
+     */
+
     async requestPairingCode(
         phoneNumber
     ) {
 
+        /*
+         * Pairing code is only valid
+         * before registration.
+         */
         if (
             this.authStorage
                 ?.state
@@ -671,14 +1060,17 @@ class LegacyClient extends EventEmitter {
             );
         }
 
+
         const number =
             String(
                 phoneNumber ||
                 ''
-            ).replace(
-                /\D/g,
-                ''
-            );
+            )
+                .replace(
+                    /\D/g,
+                    ''
+                );
+
 
         if (
             !/^\d{8,15}$/.test(
@@ -691,28 +1083,37 @@ class LegacyClient extends EventEmitter {
             );
         }
 
+
         const socket =
             this.socket;
 
+
         if (!socket) {
+
             throw new Error(
-                'WhatsApp is starting. Please wait for the QR code.'
+                'WhatsApp is still starting. Please wait and try again.'
             );
         }
+
 
         if (
             typeof socket
                 .waitForSocketOpen !==
-                'function'
+            'function'
         ) {
 
             throw new Error(
-                'WhatsApp connection readiness function is unavailable. Check the Baileys installation.'
+                'WhatsApp connection readiness function is unavailable.'
             );
         }
 
+
         try {
 
+            /*
+             * Wait for the WhatsApp WebSocket
+             * before requesting the code.
+             */
             await Promise.race([
 
                 socket.waitForSocketOpen(),
@@ -725,7 +1126,7 @@ class LegacyClient extends EventEmitter {
 
                                 reject(
                                     new Error(
-                                        'WhatsApp connection timed out. Wait for a fresh QR code and try again.'
+                                        'WhatsApp connection timed out. Please wait for a fresh QR/code session and try again.'
                                     )
                                 );
 
@@ -736,6 +1137,11 @@ class LegacyClient extends EventEmitter {
                 )
             ]);
 
+
+            /*
+             * Make sure this is still
+             * the active socket.
+             */
             if (
                 socket !==
                 this.socket
@@ -745,6 +1151,7 @@ class LegacyClient extends EventEmitter {
                     'WhatsApp is reconnecting. Please try again.'
                 );
             }
+
 
             if (
                 this.authStorage
@@ -758,10 +1165,12 @@ class LegacyClient extends EventEmitter {
                 );
             }
 
+
             const code =
                 await socket.requestPairingCode(
                     number
                 );
+
 
             if (!code) {
 
@@ -770,16 +1179,18 @@ class LegacyClient extends EventEmitter {
                 );
             }
 
+
             console.log(
-                'WhatsApp pairing code generated successfully'
+                'SCANTY MD BOT WhatsApp pairing code generated successfully'
             );
+
 
             return code;
 
         } catch (error) {
 
             console.error(
-                'Pairing code generation error:',
+                'SCANTY MD BOT pairing code generation failed:',
                 error?.message ||
                 error
             );
@@ -788,6 +1199,13 @@ class LegacyClient extends EventEmitter {
         }
     }
 
+
+    /*
+     * ==========================================================
+     * SEND MESSAGE
+     * ==========================================================
+     */
+
     async sendMessage(
         jid,
         content,
@@ -795,15 +1213,23 @@ class LegacyClient extends EventEmitter {
         oldOptions
     ) {
 
-        if (!this.socket) {
+        if (
+            !this.socket
+        ) {
+
             throw new Error(
                 'WhatsApp is not connected'
             );
         }
 
+
         let payload;
         let options = {};
 
+
+        /*
+         * TEXT / URL STRING
+         */
         if (
             typeof content ===
             'string'
@@ -815,6 +1241,7 @@ class LegacyClient extends EventEmitter {
             ) {
 
                 payload = {
+
                     image: {
                         url:
                             content
@@ -830,6 +1257,7 @@ class LegacyClient extends EventEmitter {
             ) {
 
                 payload = {
+
                     video: {
                         url:
                             content
@@ -850,8 +1278,13 @@ class LegacyClient extends EventEmitter {
                     typeOrOptions ||
                     {};
             }
+        }
 
-        } else if (
+
+        /*
+         * BUFFER MEDIA
+         */
+        else if (
             Buffer.isBuffer(
                 content
             )
@@ -861,12 +1294,14 @@ class LegacyClient extends EventEmitter {
                 oldOptions ||
                 {};
 
+
             if (
                 typeOrOptions ===
                 MessageType.image
             ) {
 
                 payload = {
+
                     image:
                         content,
 
@@ -886,6 +1321,7 @@ class LegacyClient extends EventEmitter {
             ) {
 
                 payload = {
+
                     video:
                         content,
 
@@ -907,12 +1343,18 @@ class LegacyClient extends EventEmitter {
             } else {
 
                 payload = {
+
                     document:
                         content
                 };
             }
+        }
 
-        } else {
+
+        /*
+         * OBJECT PAYLOAD
+         */
+        else {
 
             payload =
                 content ||
@@ -923,6 +1365,7 @@ class LegacyClient extends EventEmitter {
                 {};
         }
 
+
         return this.socket.sendMessage(
             jid,
             payload,
@@ -930,11 +1373,21 @@ class LegacyClient extends EventEmitter {
         );
     }
 
+
+    /*
+     * ==========================================================
+     * STATUS
+     * ==========================================================
+     */
+
     async setStatus(
         status
     ) {
 
-        if (!this.socket) {
+        if (
+            !this.socket
+        ) {
+
             return false;
         }
 
@@ -943,12 +1396,22 @@ class LegacyClient extends EventEmitter {
         );
     }
 
+
+    /*
+     * ==========================================================
+     * PRESENCE
+     * ==========================================================
+     */
+
     async updatePresence(
         jid,
         presence
     ) {
 
-        if (!this.socket) {
+        if (
+            !this.socket
+        ) {
+
             return false;
         }
 
@@ -957,6 +1420,7 @@ class LegacyClient extends EventEmitter {
             jid
         );
     }
+
 
     async sendPresenceUpdate(
         presence,
@@ -969,11 +1433,21 @@ class LegacyClient extends EventEmitter {
         );
     }
 
+
+    /*
+     * ==========================================================
+     * READ MESSAGES
+     * ==========================================================
+     */
+
     async readMessages(
         keys
     ) {
 
-        if (!this.socket) {
+        if (
+            !this.socket
+        ) {
+
             return false;
         }
 
@@ -982,24 +1456,32 @@ class LegacyClient extends EventEmitter {
         );
     }
 
+
     async chatRead(
         jid
     ) {
 
-        if (!this.socket) {
+        if (
+            !this.socket
+        ) {
+
             return false;
         }
+
 
         const lastMessage =
             this.lastMessages.get(
                 jid
             );
 
+
         if (
             !lastMessage?.key
         ) {
+
             return false;
         }
+
 
         return this.socket.readMessages(
             [
@@ -1008,16 +1490,27 @@ class LegacyClient extends EventEmitter {
         );
     }
 
+
+    /*
+     * ==========================================================
+     * MEDIA
+     * ==========================================================
+     */
+
     async downloadAndSaveMediaMessage(
         message,
         filename
     ) {
 
-        if (!this.socket) {
+        if (
+            !this.socket
+        ) {
+
             throw new Error(
                 'WhatsApp is not connected'
             );
         }
+
 
         const buffer =
             await downloadMediaMessage(
@@ -1034,33 +1527,42 @@ class LegacyClient extends EventEmitter {
                 }
             );
 
+
         const output =
             filename ||
             message.key?.id ||
             `scanty-${Date.now()}`;
+
 
         const target =
             output.includes('.')
                 ? output
                 : `${output}.bin`;
 
+
         fs.writeFileSync(
             target,
             buffer
         );
 
+
         return target;
     }
+
 
     async downloadMediaMessage(
         message
     ) {
 
-        if (!this.socket) {
+        if (
+            !this.socket
+        ) {
+
             throw new Error(
                 'WhatsApp is not connected'
             );
         }
+
 
         return downloadMediaMessage(
             message,
@@ -1077,6 +1579,13 @@ class LegacyClient extends EventEmitter {
         );
     }
 
+
+    /*
+     * ==========================================================
+     * CLOSE
+     * ==========================================================
+     */
+
     async close() {
 
         this.shouldReconnect =
@@ -1084,6 +1593,7 @@ class LegacyClient extends EventEmitter {
 
         this.connectionOpen =
             false;
+
 
         if (
             this.reconnectTimer
@@ -1097,6 +1607,7 @@ class LegacyClient extends EventEmitter {
                 null;
         }
 
+
         try {
 
             this.socket?.end(
@@ -1105,8 +1616,10 @@ class LegacyClient extends EventEmitter {
 
         } catch (_) {}
 
+
         this.socket =
             null;
+
 
         try {
 
@@ -1116,16 +1629,18 @@ class LegacyClient extends EventEmitter {
         } catch (error) {
 
             console.error(
-                'MongoDB close failed:',
+                'SCANTY MD BOT MongoDB close failed:',
                 error?.message ||
                 error
             );
         }
 
+
         this.authStorage =
             null;
     }
 }
+
 
 module.exports = {
     LegacyClient,
