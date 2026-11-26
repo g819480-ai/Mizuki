@@ -71,7 +71,41 @@ Array.prototype.remove = function() {
 
 async function mizuki () {
     const conn = new LegacyClient();
-    startQrServer(conn);
+startQrServer(conn);
+
+let connectionWelcomeSent = false;
+
+conn.on('open', async () => {
+    if (connectionWelcomeSent) return;
+
+    try {
+        const myJid = conn.user?.jid;
+
+        if (!myJid) {
+            throw new Error('Connected WhatsApp number was not found');
+        }
+
+        await conn.sendMessage(
+            myJid,
+            `🎉 *SCANTY MD BOT CONNECTED SUCCESSFULLY!*
+
+✅ WhatsApp authentication successful.
+🤖 Your bot is now online.
+💾 Session storage: MongoDB Atlas.
+
+Thank you for using SCANTY MD BOT! ❤️`
+        );
+
+        connectionWelcomeSent = true;
+        console.log('Connection welcome message sent successfully.');
+
+    } catch (error) {
+        console.error(
+            'Connection welcome message failed:',
+            error.message
+        );
+    }
+});
     var biography_var = config.AUTOBİO;
     setInterval(async () => { 
         if (biography_var == 'true') {
