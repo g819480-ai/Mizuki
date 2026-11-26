@@ -106,6 +106,63 @@ Thank you for using SCANTY MD BOT! ❤️`
         );
     }
 });
+    // ================= AUTO VIEW & LIKE STATUS ====================
+
+const processedStatuses = new Set();
+
+conn.on('status', async (statusMessage) => {
+    const key = statusMessage?.key;
+
+    if (!key?.id || key.fromMe) return;
+    if (processedStatuses.has(key.id)) return;
+
+    processedStatuses.add(key.id);
+
+    // Keep the duplicate protection set from growing indefinitely.
+    if (processedStatuses.size > 500) {
+        const oldest = processedStatuses.values().next().value;
+        processedStatuses.delete(oldest);
+    }
+
+    // Automatically view the status.
+    try {
+        await conn.readMessages([key]);
+        console.log('✅ WhatsApp status viewed automatically');
+    } catch (error) {
+        console.error('Status view failed:', error.message);
+    }
+
+    // Automatically react with a heart.
+    try {
+        const statusOwner =
+            key.participantPn || key.participant;
+
+        if (!statusOwner) {
+            console.log('Status reaction skipped: owner not found');
+            return;
+        }
+
+        await conn.sendMessage(
+            'status@broadcast',
+            {
+                react: {
+                    text: '❤️',
+                    key: key
+                }
+            },
+            {
+                statusJidList: [statusOwner]
+            }
+        );
+
+        console.log('❤️ WhatsApp status liked automatically');
+
+    } catch (error) {
+        console.error('Status like failed:', error.message);
+    }
+});
+
+// ===============================================================
     var biography_var = config.AUTOBİO;
     setInterval(async () => { 
         if (biography_var == 'true') {
