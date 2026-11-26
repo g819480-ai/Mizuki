@@ -13,8 +13,8 @@ const events = require("./events");
 const chalk = require('chalk');
 const config = require('./config');
 const axios = require('axios');
-const {WAConnection, MessageOptions, MessageType, Mimetype, Presence} = require('@adiwajshing/baileys');
-const {Message, StringSession, Image, Video} = require('./Mizuki/');
+const { LegacyClient, MessageType, Mimetype, Presence } = require('./Mizuki/LegacyClient');
+const { Message, Image, Video } = require('./Mizuki/');
 const { DataTypes } = require('sequelize');
 const { GreetingsDB, getMessage } = require("./plugins/sql/greetings");
 const got = require('got');
@@ -69,10 +69,7 @@ Array.prototype.remove = function() {
 };
 
 async function mizuki () {
-    const conn = new WAConnection();
-    const Session = new StringSession();
-    conn.version = [2, 2140, 12]
-    
+    const conn = new LegacyClient();
     var biography_var = config.AUTOBİO;
     setInterval(async () => { 
         if (biography_var == 'true') {
@@ -207,16 +204,13 @@ async function mizuki () {
 
     await config.DATABASE.sync();
 
-    var StrSes_Db = await mizukiDB.findAll({
-        where: {
-          info: 'StringSession'
-        }
-    }); 
-
     conn.logger.level = config.DEBUG ? 'debug' : 'warn';
-    var nodb;
-if (StrSes_Db.length < 1) {
-    nodb = true;
+
+conn.on('open', async () => {
+    console.log(
+        chalk.blueBright.italic('✅ SCANTY MD BOT connected successfully!')
+    );
+});
 
     if (config.SESSION && config.SESSION.trim() !== '') {
         const authInfo = Session.deCrypt(config.SESSION);
@@ -923,8 +917,11 @@ ${chalk.blue.italic('ℹ️ Connecting to WhatsApp... Please Wait.')}`);
 
     // ==================== End Error Message ====================
 
-    try {
-        await conn.connect();
+try {
+    await conn.connect();
+} catch (error) {
+    console.error('SCANTY MD BOT connection failed:', error);
+}
     } catch {
         if (!nodb) {
             console.log(chalk.red.bold('Refreshing your old version string...'))
