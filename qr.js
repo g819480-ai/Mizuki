@@ -109,7 +109,7 @@ function startQrServer(conn) {
      * dashboard.js uses this handler for:
      * POST /api/pair
      */
-    global.__scantyPairingHandler = requestPairingCode;
+    
 
     updateState();
 
