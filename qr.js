@@ -30,7 +30,7 @@ async function updateState() {
     }
 }
 
-function clearQR() {
+async function clearQR() {
     qrGeneration++;
 
     if (qrExpiryTimer) {
@@ -82,7 +82,8 @@ async function requestPairingCode(phone) {
             );
         }
 
-        const code = await client.requestPairingCode(phone);
+        const code =
+            await client.requestPairingCode(phone);
 
         if (!code) {
             throw new Error(
@@ -113,32 +114,28 @@ function startQrServer(conn) {
     client = conn;
 
     /*
-     * dashboard.js uses this handler for:
-     * POST /api/pair
+     * The dashboard service is separate from this
+     * WhatsApp daemon, so pairing requests are exposed
+     * through MongoDB-backed dashboard state.
      */
-    
-
     updateState();
 
     client.on('qr', async qr => {
         if (!qr) {
-            clearQR();
+            await clearQR();
             return;
         }
 
         const generation = ++qrGeneration;
 
         try {
-            const image = await QRCode.toDataURL(qr, {
-                width: 400,
-                margin: 2,
-                errorCorrectionLevel: 'H'
-            });
+            const image =
+                await QRCode.toDataURL(qr, {
+                    width: 400,
+                    margin: 2,
+                    errorCorrectionLevel: 'H'
+                });
 
-            /*
-             * Ignore an older QR conversion if a newer
-             * QR code has already arrived.
-             */
             if (generation !== qrGeneration) {
                 return;
             }
@@ -148,32 +145,46 @@ function startQrServer(conn) {
             }
 
             currentQR = image;
-            qrExpiresAt = Date.now() + QR_LIFETIME;
-            connectionStatus = 'Scan the QR code';
+            qrExpiresAt =
+                Date.now() + QR_LIFETIME;
 
-            updateState();
+            connectionStatus =
+                'Scan the QR code';
 
-            console.log('Dashboard QR updated');
+            await updateState();
 
-            qrExpiryTimer = setTimeout(() => {
-                if (generation !== qrGeneration) {
-                    return;
-                }
+            console.log(
+                'Dashboard QR updated'
+            );
 
-                currentQR = null;
-                qrExpiresAt = null;
-                qrExpiryTimer = null;
+            qrExpiryTimer =
+                setTimeout(async () => {
 
-                if (connectionStatus !== 'Connected') {
-                    connectionStatus =
-                        'QR expired - waiting for a new QR code';
-                }
+                    if (
+                        generation !== qrGeneration
+                    ) {
+                        return;
+                    }
 
-                updateState();
+                    currentQR = null;
+                    qrExpiresAt = null;
+                    qrExpiryTimer = null;
 
-                console.log('QR code expired');
+                    if (
+                        connectionStatus !==
+                        'Connected'
+                    ) {
+                        connectionStatus =
+                            'QR expired - waiting for a new QR code';
+                    }
 
-            }, QR_LIFETIME);
+                    await updateState();
+
+                    console.log(
+                        'QR code expired'
+                    );
+
+                }, QR_LIFETIME);
 
         } catch (error) {
             console.error(
@@ -183,32 +194,35 @@ function startQrServer(conn) {
         }
     });
 
-    client.on('connecting', () => {
-        connectionStatus = 'Connecting to WhatsApp';
+    client.on('connecting', async () => {
+        connectionStatus =
+            'Connecting to WhatsApp';
 
-        updateState();
+        await updateState();
 
         console.log(
             'SCANTY MD BOT connecting to WhatsApp...'
         );
     });
 
-    client.on('open', () => {
-        clearQR();
+    client.on('open', async () => {
+        await clearQR();
 
-        connectionStatus = 'Connected';
+        connectionStatus =
+            'Connected';
+
         pairingCode = null;
         pairingInProgress = false;
 
-        updateState();
+        await updateState();
 
         console.log(
             'WhatsApp connected successfully'
         );
     });
 
-    client.on('close', () => {
-        clearQR();
+    client.on('close', async () => {
+        await clearQR();
 
         connectionStatus =
             'Disconnected - reconnecting';
@@ -216,7 +230,7 @@ function startQrServer(conn) {
         pairingCode = null;
         pairingInProgress = false;
 
-        updateState();
+        await updateState();
 
         console.log(
             'WhatsApp disconnected'
@@ -229,5 +243,6 @@ function startQrServer(conn) {
 }
 
 module.exports = {
-    startQrServer
+    startQrServer,
+    requestPairingCode
 };
