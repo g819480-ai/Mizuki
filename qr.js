@@ -41,7 +41,7 @@ function clearQR() {
     currentQR = null;
     qrExpiresAt = null;
 
-    updateState();
+    await updateState();
 }
 
 async function requestPairingCode(phone) {
@@ -92,7 +92,7 @@ async function requestPairingCode(phone) {
 
         pairingCode = String(code);
 
-        updateState();
+        await updateState();
 
         console.log(
             'Pairing code generated successfully'
