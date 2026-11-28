@@ -28,7 +28,8 @@ async function getStateCollection() {
 }
 
 async function setDashboardState(data = {}) {
-    const collection = await getStateCollection();
+    const collection =
+        await getStateCollection();
 
     await collection.updateOne(
         { _id: 'scanty-dashboard' },
@@ -45,15 +46,37 @@ async function setDashboardState(data = {}) {
 }
 
 async function getDashboardState() {
-    const collection = await getStateCollection();
+    const collection =
+        await getStateCollection();
 
-    const state = await collection.findOne({
-        _id: 'scanty-dashboard'
-    });
+    const state =
+        await collection.findOne({
+            _id: 'scanty-dashboard'
+        });
 
     if (!state) {
         return {
-            status: 'Waiting for WhatsApp...',
+            status: 'Reconnecting to WhatsApp...',
+            qr: null,
+            expiresAt: null,
+            pairingCode: null
+        };
+    }
+
+    /*
+     * If the daemon has not updated MongoDB recently,
+     * don't pretend that the old state is live.
+     */
+    const lastUpdate =
+        Number(state.updatedAt || 0);
+
+    const stale =
+        !lastUpdate ||
+        Date.now() - lastUpdate > 15000;
+
+    if (stale) {
+        return {
+            status: 'Reconnecting to WhatsApp...',
             qr: null,
             expiresAt: null,
             pairingCode: null
@@ -133,32 +156,37 @@ async function updatePairingRequest(
     const collection =
         await getStateCollection();
 
+    const update = {
+        'pairingRequest.status':
+            data.status,
+
+        'pairingRequest.code':
+            data.code || null,
+
+        'pairingRequest.error':
+            data.error || null,
+
+        'pairingRequest.updatedAt':
+            Date.now(),
+
+        updatedAt:
+            Date.now()
+    };
+
+    if (data.code) {
+        update.pairingCode =
+            String(data.code);
+    }
+
     await collection.updateOne(
         {
             _id: 'scanty-dashboard',
-            'pairingRequest.id': requestId
+
+            'pairingRequest.id':
+                requestId
         },
         {
-            $set: {
-                'pairingRequest.status':
-                    data.status,
-
-                'pairingRequest.code':
-                    data.code || null,
-
-                'pairingRequest.error':
-                    data.error || null,
-
-                'pairingRequest.updatedAt':
-                    Date.now(),
-
-                ...(data.code
-                    ? {
-                        pairingCode:
-                            String(data.code)
-                    }
-                    : {})
-            }
+            $set: update
         }
     );
 }
