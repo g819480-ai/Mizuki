@@ -1,7 +1,5 @@
 #:schema https://openapi.vercel.sh/vercel.json
-
 [daemons.scanty-bot]
-root = "."
+root = "miziku"
 entrypoint = "Dockerfile"
-
 instances.iad1 = 1
