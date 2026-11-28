@@ -357,50 +357,80 @@ async function handler(req, res) {
             );
         }
 
-        if (
-            req.method === 'POST' &&
-            url.pathname === '/api/pair'
-        ) {
+        if (req.method === 'POST' && url.pathname === '/api/pair') {
+    const {
+        createPairingRequest,
+        getPairingRequest
+    } = require('./dashboard-state');
 
-            if (
-                !global.__scantyPairingHandler
-            ) {
+    try {
+        const body = await readBody(req);
 
-                res.statusCode = 503;
-
-                res.setHeader(
-                    'Content-Type',
-                    'application/json'
-                );
-
-                return res.end(
-                    JSON.stringify({
-                        error:
-                            'Pairing service is not ready yet.'
-                    })
-                );
-            }
-
-            const body =
-                await readBody(req);
-
-            const result =
-                await global.__scantyPairingHandler(
-                    body.phone
-                );
-
-            res.statusCode = 200;
-
-            res.setHeader(
-                'Content-Type',
-                'application/json'
-            );
-
-            return res.end(
-                JSON.stringify(result)
-            );
+        if (!body.phone) {
+            res.statusCode = 400;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({
+                error: 'Phone number is required'
+            }));
         }
 
+        const requestId = await createPairingRequest(body.phone);
+
+        const startedAt = Date.now();
+
+        while (Date.now() - startedAt < 30000) {
+            await new Promise(resolve =>
+                setTimeout(resolve, 1000)
+            );
+
+            const request = await getPairingRequest();
+
+            if (!request || request.id !== requestId) {
+                continue;
+            }
+
+            if (request.status === 'completed') {
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/json');
+
+                return res.end(JSON.stringify({
+                    code: request.code
+                }));
+            }
+
+            if (request.status === 'failed') {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+
+                return res.end(JSON.stringify({
+                    error: request.error ||
+                        'Pairing request failed'
+                }));
+            }
+        }
+
+        res.statusCode = 504;
+        res.setHeader('Content-Type', 'application/json');
+
+        return res.end(JSON.stringify({
+            error: 'Pairing request timed out. Please try again.'
+        }));
+
+    } catch (error) {
+        console.error(
+            'Dashboard pairing request failed:',
+            error?.message || error
+        );
+
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+
+        return res.end(JSON.stringify({
+            error: error?.message ||
+                'Pairing request failed'
+        }));
+    }
+}
         res.statusCode = 404;
 
         res.setHeader(
