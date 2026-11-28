@@ -13,13 +13,18 @@ module.exports = {
         }
 
         const list = [...unique.values()]
-            .map(command => `│ ${prefix}${command.name} - ${command.description}`)
+            .map(
+                command =>
+                    `│  ${prefix}${command.name} — ${command.description}`
+            )
             .join('\n');
 
         await reply(
-            `╭━━━『 SCANTY MD BOT 』━━━╮\n` +
-            `${list}\n` +
-            `╰━━━━━━━━━━━━━━━━━━╯`
+            '╭━━━〔 📜 SCANTY MD BOT 〕━━━╮\n' +
+            '│\n' +
+            list +
+            '\n│\n' +
+            '╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯'
         );
     }
 };
