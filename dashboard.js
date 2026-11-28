@@ -1,5 +1,11 @@
 'use strict';
 
+const {
+    getDashboardState,
+    createPairingRequest,
+    getPairingRequest
+} = require('./dashboard-state');
+
 let status = 'Waiting for WhatsApp...';
 let qr = null;
 let expiresAt = null;
@@ -155,6 +161,11 @@ button {
     cursor: pointer;
 }
 
+button:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+}
+
 .note {
     margin-top: 18px;
     color: #777;
@@ -188,7 +199,7 @@ Waiting for WhatsApp...
     placeholder="Country code + phone number"
 >
 
-<button onclick="getPairingCode()">
+<button id="pairButton" onclick="getPairingCode()">
 GET PAIRING CODE
 </button>
 
@@ -206,6 +217,10 @@ async function refresh() {
             cache: 'no-store'
         });
 
+        if (!response.ok) {
+            throw new Error('Status request failed');
+        }
+
         const data = await response.json();
 
         document.getElementById('status').textContent =
@@ -217,7 +232,9 @@ async function refresh() {
         if (data.qr) {
             qrContainer.innerHTML =
                 '<div class="qr">' +
-                '<img src="' + data.qr + '" alt="WhatsApp QR Code">' +
+                '<img src="' +
+                data.qr +
+                '" alt="WhatsApp QR Code">' +
                 '</div>';
         } else {
             qrContainer.innerHTML = '';
@@ -232,11 +249,16 @@ async function refresh() {
 
             code.style.display =
                 'block';
+        } else {
+            code.textContent = '';
+            code.style.display = 'none';
         }
 
     } catch (error) {
+
         document.getElementById('status').textContent =
             'Dashboard reconnecting...';
+
     }
 }
 
@@ -246,17 +268,23 @@ async function getPairingCode() {
         document.getElementById('phone')
         .value
         .trim()
-        .replace(/\\D/g, '');
+        .replace(/\D/g, '');
 
     const code =
         document.getElementById('code');
 
-    if (!/^\\d{8,15}$/.test(phone)) {
+    const button =
+        document.getElementById('pairButton');
+
+    if (!/^\d{8,15}$/.test(phone)) {
         alert(
             'Enter a valid phone number with country code.'
         );
         return;
     }
+
+    button.disabled = true;
+    button.textContent = 'REQUESTING CODE...';
 
     try {
 
@@ -282,20 +310,37 @@ async function getPairingCode() {
             );
         }
 
+        if (!result.code) {
+            throw new Error(
+                'Pairing code was not returned'
+            );
+        }
+
         code.textContent =
-            result.code || '';
+            result.code;
 
         code.style.display =
             'block';
 
+        document.getElementById('status').textContent =
+            'Pairing code ready';
+
     } catch (error) {
 
         code.textContent = '';
+        code.style.display = 'none';
 
         alert(
             error.message ||
             'Pairing failed'
         );
+
+    } finally {
+
+        button.disabled = false;
+        button.textContent =
+            'GET PAIRING CODE';
+
     }
 }
 
@@ -323,6 +368,9 @@ async function handler(req, res) {
             'no-store'
         );
 
+        /*
+         * DASHBOARD PAGE
+         */
         if (
             req.method === 'GET' &&
             url.pathname === '/'
@@ -338,10 +386,23 @@ async function handler(req, res) {
             return res.end(PAGE);
         }
 
+        /*
+         * DASHBOARD STATUS
+         *
+         * IMPORTANT:
+         * The dashboard is a separate Vercel service
+         * from the WhatsApp daemon.
+         *
+         * Therefore the status must be read from
+         * MongoDB instead of local variables.
+         */
         if (
             req.method === 'GET' &&
             url.pathname === '/api/status'
         ) {
+
+            const state =
+                await getDashboardState();
 
             res.statusCode = 200;
 
@@ -351,86 +412,192 @@ async function handler(req, res) {
             );
 
             return res.end(
-                JSON.stringify(
-                    getState()
-                )
+                JSON.stringify(state)
             );
         }
 
-        if (req.method === 'POST' && url.pathname === '/api/pair') {
-    const {
-        createPairingRequest,
-        getPairingRequest
-    } = require('./dashboard-state');
+        /*
+         * PAIRING REQUEST
+         */
+        if (
+            req.method === 'POST' &&
+            url.pathname === '/api/pair'
+        ) {
 
-    try {
-        const body = await readBody(req);
+            try {
 
-        if (!body.phone) {
-            res.statusCode = 400;
-            res.setHeader('Content-Type', 'application/json');
-            return res.end(JSON.stringify({
-                error: 'Phone number is required'
-            }));
+                const body =
+                    await readBody(req);
+
+                if (!body.phone) {
+
+                    res.statusCode = 400;
+
+                    res.setHeader(
+                        'Content-Type',
+                        'application/json'
+                    );
+
+                    return res.end(
+                        JSON.stringify({
+                            error:
+                                'Phone number is required'
+                        })
+                    );
+                }
+
+                const phone =
+                    String(body.phone)
+                    .replace(/\D/g, '');
+
+                if (!/^\d{8,15}$/.test(phone)) {
+
+                    res.statusCode = 400;
+
+                    res.setHeader(
+                        'Content-Type',
+                        'application/json'
+                    );
+
+                    return res.end(
+                        JSON.stringify({
+                            error:
+                                'Enter a valid phone number with country code'
+                        })
+                    );
+                }
+
+                /*
+                 * Store the request in MongoDB.
+                 *
+                 * The WhatsApp daemon in qr.js
+                 * watches for this request.
+                 */
+                const requestId =
+                    await createPairingRequest(
+                        phone
+                    );
+
+                const startedAt =
+                    Date.now();
+
+                /*
+                 * Wait for qr.js to process
+                 * the request.
+                 */
+                while (
+                    Date.now() -
+                    startedAt <
+                    30000
+                ) {
+
+                    await new Promise(
+                        resolve =>
+                            setTimeout(
+                                resolve,
+                                1000
+                            )
+                    );
+
+                    const request =
+                        await getPairingRequest();
+
+                    if (
+                        !request ||
+                        request.id !==
+                        requestId
+                    ) {
+                        continue;
+                    }
+
+                    if (
+                        request.status ===
+                        'completed'
+                    ) {
+
+                        res.statusCode =
+                            200;
+
+                        res.setHeader(
+                            'Content-Type',
+                            'application/json'
+                        );
+
+                        return res.end(
+                            JSON.stringify({
+                                code:
+                                    request.code
+                            })
+                        );
+                    }
+
+                    if (
+                        request.status ===
+                        'failed'
+                    ) {
+
+                        res.statusCode =
+                            400;
+
+                        res.setHeader(
+                            'Content-Type',
+                            'application/json'
+                        );
+
+                        return res.end(
+                            JSON.stringify({
+                                error:
+                                    request.error ||
+                                    'Pairing request failed'
+                            })
+                        );
+                    }
+                }
+
+                res.statusCode =
+                    504;
+
+                res.setHeader(
+                    'Content-Type',
+                    'application/json'
+                );
+
+                return res.end(
+                    JSON.stringify({
+                        error:
+                            'Pairing request timed out. Please try again.'
+                    })
+                );
+
+            } catch (error) {
+
+                console.error(
+                    'Dashboard pairing request failed:',
+                    error?.message ||
+                    error
+                );
+
+                res.statusCode =
+                    500;
+
+                res.setHeader(
+                    'Content-Type',
+                    'application/json'
+                );
+
+                return res.end(
+                    JSON.stringify({
+                        error:
+                            error?.message ||
+                            'Pairing request failed'
+                    })
+                );
+            }
         }
 
-        const requestId = await createPairingRequest(body.phone);
-
-        const startedAt = Date.now();
-
-        while (Date.now() - startedAt < 30000) {
-            await new Promise(resolve =>
-                setTimeout(resolve, 1000)
-            );
-
-            const request = await getPairingRequest();
-
-            if (!request || request.id !== requestId) {
-                continue;
-            }
-
-            if (request.status === 'completed') {
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'application/json');
-
-                return res.end(JSON.stringify({
-                    code: request.code
-                }));
-            }
-
-            if (request.status === 'failed') {
-                res.statusCode = 400;
-                res.setHeader('Content-Type', 'application/json');
-
-                return res.end(JSON.stringify({
-                    error: request.error ||
-                        'Pairing request failed'
-                }));
-            }
-        }
-
-        res.statusCode = 504;
-        res.setHeader('Content-Type', 'application/json');
-
-        return res.end(JSON.stringify({
-            error: 'Pairing request timed out. Please try again.'
-        }));
-
-    } catch (error) {
-        console.error(
-            'Dashboard pairing request failed:',
-            error?.message || error
-        );
-
-        res.statusCode = 500;
-        res.setHeader('Content-Type', 'application/json');
-
-        return res.end(JSON.stringify({
-            error: error?.message ||
-                'Pairing request failed'
-        }));
-    }
-}
+        /*
+         * NOT FOUND
+         */
         res.statusCode = 404;
 
         res.setHeader(
@@ -448,6 +615,7 @@ async function handler(req, res) {
 
         console.error(
             'Dashboard request failed:',
+            error?.message ||
             error
         );
 
@@ -469,7 +637,9 @@ async function handler(req, res) {
 }
 
 module.exports = handler;
+
 module.exports.updateDashboardState =
     updateDashboardState;
+
 module.exports.getDashboardState =
     getState;
