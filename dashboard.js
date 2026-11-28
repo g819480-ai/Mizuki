@@ -1,22 +1,11 @@
 'use strict';
 
-const http = require('http');
-
-const PORT = Number(process.env.PORT) || 3000;
-
 let status = 'Waiting for WhatsApp...';
 let qr = null;
 let expiresAt = null;
 let pairingCode = null;
 
-function updateDashboardState(data = {}) {
-    if (data.status !== undefined) status = data.status;
-    if (data.qr !== undefined) qr = data.qr;
-    if (data.expiresAt !== undefined) expiresAt = data.expiresAt;
-    if (data.pairingCode !== undefined) pairingCode = data.pairingCode;
-}
-
-function getDashboardState() {
+function getState() {
     return {
         status,
         qr,
@@ -25,140 +14,193 @@ function getDashboardState() {
     };
 }
 
+function updateDashboardState(data = {}) {
+    if (data.status !== undefined) {
+        status = data.status;
+    }
+
+    if (data.qr !== undefined) {
+        qr = data.qr;
+    }
+
+    if (data.expiresAt !== undefined) {
+        expiresAt = data.expiresAt;
+    }
+
+    if (data.pairingCode !== undefined) {
+        pairingCode = data.pairingCode;
+    }
+}
+
+async function readBody(req) {
+    return new Promise((resolve, reject) => {
+        let body = '';
+
+        req.on('data', chunk => {
+            body += chunk;
+
+            if (body.length > 4096) {
+                reject(new Error('Request too large'));
+                req.destroy();
+            }
+        });
+
+        req.on('end', () => {
+            try {
+                resolve(JSON.parse(body || '{}'));
+            } catch {
+                reject(new Error('Invalid request data'));
+            }
+        });
+
+        req.on('error', reject);
+    });
+}
+
 const PAGE = `<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>SCANTY MD BOT</title>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SCANTY MD BOT</title>
 
-        body {
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            background: #050505;
-            color: white;
-            font-family: Arial, sans-serif;
-        }
+<style>
+* {
+    box-sizing: border-box;
+}
 
-        .card {
-            width: 100%;
-            max-width: 430px;
-            padding: 30px 22px;
-            text-align: center;
-            border: 1px solid #222;
-            border-radius: 20px;
-            background: #101010;
-            box-shadow: 0 15px 50px rgba(0,0,0,.45);
-        }
+body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #050505;
+    color: white;
+    font-family: Arial, sans-serif;
+}
 
-        h1 {
-            margin: 0 0 8px;
-            font-size: 28px;
-        }
+.card {
+    width: 100%;
+    max-width: 440px;
+    padding: 30px 22px;
+    text-align: center;
+    background: #101010;
+    border: 1px solid #292929;
+    border-radius: 20px;
+    box-shadow: 0 15px 50px rgba(0,0,0,.45);
+}
 
-        .brand {
-            margin-bottom: 22px;
-            color: #aaa;
-            font-size: 14px;
-        }
+h1 {
+    margin: 0;
+    font-size: 28px;
+}
 
-        #status {
-            margin: 15px 0;
-            font-size: 15px;
-            color: #ddd;
-        }
+.subtitle {
+    margin-top: 8px;
+    color: #999;
+    font-size: 14px;
+}
 
-        #qr {
-            width: 280px;
-            max-width: 100%;
-            margin: 15px auto;
-            display: none;
-            border-radius: 12px;
-            background: white;
-            padding: 10px;
-        }
+.status {
+    margin: 20px 0;
+    color: #ddd;
+}
 
-        .code {
-            margin: 20px 0;
-            padding: 15px;
-            border: 1px dashed #444;
-            border-radius: 12px;
-            font-size: 26px;
-            letter-spacing: 4px;
-            display: none;
-        }
+.qr {
+    width: 280px;
+    max-width: 100%;
+    margin: 15px auto;
+    padding: 10px;
+    background: white;
+    border-radius: 12px;
+}
 
-        input {
-            width: 100%;
-            padding: 13px;
-            margin-top: 10px;
-            border: 1px solid #333;
-            border-radius: 10px;
-            background: #181818;
-            color: white;
-            outline: none;
-        }
+.qr img {
+    width: 100%;
+    display: block;
+}
 
-        button {
-            width: 100%;
-            margin-top: 10px;
-            padding: 13px;
-            border: 0;
-            border-radius: 10px;
-            background: white;
-            color: black;
-            font-weight: bold;
-            cursor: pointer;
-        }
+.code {
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px dashed #444;
+    border-radius: 12px;
+    font-size: 25px;
+    letter-spacing: 4px;
+    display: none;
+}
 
-        button:active {
-            transform: scale(.98);
-        }
+input {
+    width: 100%;
+    padding: 13px;
+    margin-top: 10px;
+    border: 1px solid #333;
+    border-radius: 10px;
+    background: #181818;
+    color: white;
+    outline: none;
+}
 
-        .small {
-            margin-top: 18px;
-            color: #777;
-            font-size: 12px;
-        }
-    </style>
+button {
+    width: 100%;
+    margin-top: 10px;
+    padding: 13px;
+    border: 0;
+    border-radius: 10px;
+    background: white;
+    color: black;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.note {
+    margin-top: 18px;
+    color: #777;
+    font-size: 12px;
+}
+</style>
 </head>
 
 <body>
+
 <div class="card">
-    <h1>SCANTY MD BOT</h1>
-    <div class="brand">WhatsApp Connection Dashboard</div>
 
-    <div id="status">Waiting for WhatsApp...</div>
+<h1>SCANTY MD BOT</h1>
 
-    <img id="qr" alt="WhatsApp QR Code">
+<div class="subtitle">
+WhatsApp Connection Dashboard
+</div>
 
-    <div id="code" class="code"></div>
+<div id="status" class="status">
+Waiting for WhatsApp...
+</div>
 
-    <input
-        id="phone"
-        type="text"
-        placeholder="Enter WhatsApp number with country code"
-    >
+<div id="qrContainer"></div>
 
-    <button onclick="requestPairingCode()">
-        Get Pairing Code
-    </button>
+<div id="code" class="code"></div>
 
-    <div class="small">
-        Scan the QR code or use the pairing code to connect.
-    </div>
+<input
+    id="phone"
+    type="tel"
+    inputmode="numeric"
+    placeholder="Country code + phone number"
+>
+
+<button onclick="getPairingCode()">
+GET PAIRING CODE
+</button>
+
+<div class="note">
+Enter your WhatsApp number with country code, without the + sign.
+</div>
+
 </div>
 
 <script>
-async function refreshStatus() {
+
+async function refresh() {
     try {
         const response = await fetch('/api/status', {
             cache: 'no-store'
@@ -169,152 +211,235 @@ async function refreshStatus() {
         document.getElementById('status').textContent =
             data.status || 'Waiting for WhatsApp...';
 
-        const qr = document.getElementById('qr');
-        const code = document.getElementById('code');
+        const qrContainer =
+            document.getElementById('qrContainer');
 
         if (data.qr) {
-            qr.src = data.qr;
-            qr.style.display = 'block';
+            qrContainer.innerHTML =
+                '<div class="qr">' +
+                '<img src="' + data.qr + '" alt="WhatsApp QR Code">' +
+                '</div>';
         } else {
-            qr.style.display = 'none';
+            qrContainer.innerHTML = '';
         }
 
+        const code =
+            document.getElementById('code');
+
         if (data.pairingCode) {
-            code.textContent = data.pairingCode;
-            code.style.display = 'block';
-        } else {
-            code.style.display = 'none';
+            code.textContent =
+                data.pairingCode;
+
+            code.style.display =
+                'block';
         }
+
     } catch (error) {
         document.getElementById('status').textContent =
-            'Dashboard connection unavailable';
+            'Dashboard reconnecting...';
     }
 }
 
-async function requestPairingCode() {
-    const phone = document.getElementById('phone').value.trim();
+async function getPairingCode() {
 
-    if (!phone) {
-        alert('Enter your WhatsApp number.');
+    const phone =
+        document.getElementById('phone')
+        .value
+        .trim()
+        .replace(/\\D/g, '');
+
+    const code =
+        document.getElementById('code');
+
+    if (!/^\\d{8,15}$/.test(phone)) {
+        alert(
+            'Enter a valid phone number with country code.'
+        );
         return;
     }
 
     try {
-        const response = await fetch('/api/pair', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ phone })
-        });
 
-        const data = await response.json();
+        const response =
+            await fetch('/api/pair', {
+                method: 'POST',
+                headers: {
+                    'Content-Type':
+                        'application/json'
+                },
+                body: JSON.stringify({
+                    phone
+                })
+            });
+
+        const result =
+            await response.json();
 
         if (!response.ok) {
-            alert(data.error || 'Unable to generate pairing code.');
-            return;
+            throw new Error(
+                result.error ||
+                'Pairing failed'
+            );
         }
 
-        if (data.code) {
-            document.getElementById('code').textContent = data.code;
-            document.getElementById('code').style.display = 'block';
-        }
+        code.textContent =
+            result.code || '';
+
+        code.style.display =
+            'block';
+
     } catch (error) {
-        alert('Unable to contact the dashboard.');
+
+        code.textContent = '';
+
+        alert(
+            error.message ||
+            'Pairing failed'
+        );
     }
 }
 
-refreshStatus();
-setInterval(refreshStatus, 1000);
+refresh();
+
+setInterval(refresh, 1000);
+
 </script>
+
 </body>
 </html>`;
 
-const server = http.createServer(async (req, res) => {
-    const url = new URL(
-        req.url,
-        `http://${req.headers.host || 'localhost'}`
-    );
+async function handler(req, res) {
 
-    res.setHeader('Cache-Control', 'no-store');
+    try {
 
-    if (req.method === 'GET' && url.pathname === '/') {
-        res.writeHead(200, {
-            'Content-Type': 'text/html; charset=utf-8'
-        });
+        const url =
+            new URL(
+                req.url,
+                `https://${req.headers.host || 'localhost'}`
+            );
 
-        res.end(PAGE);
-        return;
-    }
+        res.setHeader(
+            'Cache-Control',
+            'no-store'
+        );
 
-    if (req.method === 'GET' && url.pathname === '/api/status') {
-        res.writeHead(200, {
-            'Content-Type': 'application/json'
-        });
+        if (
+            req.method === 'GET' &&
+            url.pathname === '/'
+        ) {
 
-        res.end(JSON.stringify(getDashboardState()));
-        return;
-    }
+            res.statusCode = 200;
 
-    if (req.method === 'POST' && url.pathname === '/api/pair') {
-        let body = '';
+            res.setHeader(
+                'Content-Type',
+                'text/html; charset=utf-8'
+            );
 
-        req.on('data', chunk => {
-            body += chunk;
-        });
+            return res.end(PAGE);
+        }
 
-        req.on('end', async () => {
-            try {
-                const data = JSON.parse(body || '{}');
+        if (
+            req.method === 'GET' &&
+            url.pathname === '/api/status'
+        ) {
 
-                if (!global.__scantyPairingHandler) {
-                    res.writeHead(503, {
-                        'Content-Type': 'application/json'
-                    });
+            res.statusCode = 200;
 
-                    res.end(JSON.stringify({
-                        error: 'Pairing service is not ready yet.'
-                    }));
+            res.setHeader(
+                'Content-Type',
+                'application/json'
+            );
 
-                    return;
-                }
+            return res.end(
+                JSON.stringify(
+                    getState()
+                )
+            );
+        }
 
-                const result =
-                    await global.__scantyPairingHandler(data.phone);
+        if (
+            req.method === 'POST' &&
+            url.pathname === '/api/pair'
+        ) {
 
-                res.writeHead(200, {
-                    'Content-Type': 'application/json'
-                });
+            if (
+                !global.__scantyPairingHandler
+            ) {
 
-                res.end(JSON.stringify(result));
-            } catch (error) {
-                res.writeHead(400, {
-                    'Content-Type': 'application/json'
-                });
+                res.statusCode = 503;
 
-                res.end(JSON.stringify({
-                    error: error?.message || 'Pairing failed.'
-                }));
+                res.setHeader(
+                    'Content-Type',
+                    'application/json'
+                );
+
+                return res.end(
+                    JSON.stringify({
+                        error:
+                            'Pairing service is not ready yet.'
+                    })
+                );
             }
-        });
 
-        return;
+            const body =
+                await readBody(req);
+
+            const result =
+                await global.__scantyPairingHandler(
+                    body.phone
+                );
+
+            res.statusCode = 200;
+
+            res.setHeader(
+                'Content-Type',
+                'application/json'
+            );
+
+            return res.end(
+                JSON.stringify(result)
+            );
+        }
+
+        res.statusCode = 404;
+
+        res.setHeader(
+            'Content-Type',
+            'application/json'
+        );
+
+        return res.end(
+            JSON.stringify({
+                error: 'Not found'
+            })
+        );
+
+    } catch (error) {
+
+        console.error(
+            'Dashboard request failed:',
+            error
+        );
+
+        res.statusCode = 500;
+
+        res.setHeader(
+            'Content-Type',
+            'application/json'
+        );
+
+        return res.end(
+            JSON.stringify({
+                error:
+                    error?.message ||
+                    'Internal server error'
+            })
+        );
     }
+}
 
-    res.writeHead(404, {
-        'Content-Type': 'application/json'
-    });
-
-    res.end(JSON.stringify({
-        error: 'Not found'
-    }));
-});
-
-server.listen(PORT, () => {
-    console.log(`SCANTY dashboard listening on port ${PORT}`);
-});
-
-module.exports = {
-    updateDashboardState,
-    getDashboardState
-};
+module.exports = handler;
+module.exports.updateDashboardState =
+    updateDashboardState;
+module.exports.getDashboardState =
+    getState;
