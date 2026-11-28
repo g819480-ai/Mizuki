@@ -5,30 +5,32 @@ const { MongoClient } = require('mongodb');
 const MONGO_URI = process.env.MONGO_URI;
 const DB_NAME = 'scanty_md_bot';
 
-let client;
-let db;
-let collection;
+let mongoClient = null;
+let db = null;
 
-async function getCollection() {
+async function getDb() {
     if (!MONGO_URI) {
         throw new Error('MONGO_URI is missing');
     }
 
-    if (!collection) {
-        client = new MongoClient(MONGO_URI);
-        await client.connect();
-
-        db = client.db(DB_NAME);
-        collection = db.collection('dashboard_state');
+    if (!db) {
+        mongoClient = new MongoClient(MONGO_URI);
+        await mongoClient.connect();
+        db = mongoClient.db(DB_NAME);
     }
 
-    return collection;
+    return db;
+}
+
+async function getStateCollection() {
+    const database = await getDb();
+    return database.collection('dashboard_state');
 }
 
 async function setDashboardState(data = {}) {
-    const col = await getCollection();
+    const collection = await getStateCollection();
 
-    await col.updateOne(
+    await collection.updateOne(
         { _id: 'scanty-dashboard' },
         {
             $set: {
@@ -36,14 +38,16 @@ async function setDashboardState(data = {}) {
                 updatedAt: Date.now()
             }
         },
-        { upsert: true }
+        {
+            upsert: true
+        }
     );
 }
 
 async function getDashboardState() {
-    const col = await getCollection();
+    const collection = await getStateCollection();
 
-    const state = await col.findOne({
+    const state = await collection.findOne({
         _id: 'scanty-dashboard'
     });
 
@@ -75,17 +79,94 @@ async function getDashboardState() {
     };
 }
 
-async function clearDashboardState() {
-    await setDashboardState({
-        status: 'Waiting for WhatsApp...',
-        qr: null,
-        expiresAt: null,
-        pairingCode: null
-    });
+async function createPairingRequest(phone) {
+    const collection =
+        await getStateCollection();
+
+    const requestId =
+        `${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`;
+
+    await collection.updateOne(
+        { _id: 'scanty-dashboard' },
+        {
+            $set: {
+                pairingRequest: {
+                    id: requestId,
+                    phone: String(phone),
+                    status: 'pending',
+                    code: null,
+                    error: null,
+                    createdAt: Date.now()
+                },
+
+                pairingCode: null,
+
+                updatedAt: Date.now()
+            }
+        },
+        {
+            upsert: true
+        }
+    );
+
+    return requestId;
+}
+
+async function getPairingRequest() {
+    const collection =
+        await getStateCollection();
+
+    const state =
+        await collection.findOne({
+            _id: 'scanty-dashboard'
+        });
+
+    return state?.pairingRequest || null;
+}
+
+async function updatePairingRequest(
+    requestId,
+    data = {}
+) {
+    const collection =
+        await getStateCollection();
+
+    await collection.updateOne(
+        {
+            _id: 'scanty-dashboard',
+            'pairingRequest.id': requestId
+        },
+        {
+            $set: {
+                'pairingRequest.status':
+                    data.status,
+
+                'pairingRequest.code':
+                    data.code || null,
+
+                'pairingRequest.error':
+                    data.error || null,
+
+                'pairingRequest.updatedAt':
+                    Date.now(),
+
+                ...(data.code
+                    ? {
+                        pairingCode:
+                            String(data.code)
+                    }
+                    : {})
+            }
+        }
+    );
 }
 
 module.exports = {
     setDashboardState,
     getDashboardState,
-    clearDashboardState
+    createPairingRequest,
+    getPairingRequest,
+    updatePairingRequest
 };
