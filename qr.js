@@ -1,7 +1,7 @@
 'use strict';
 
 const QRCode = require('qrcode');
-const { updateDashboardState } = require('./dashboard');
+const { setDashboardState } = require('./dashboard-state');
 
 let client = null;
 let currentQR = null;
@@ -14,13 +14,20 @@ let pairingInProgress = false;
 
 const QR_LIFETIME = 30000;
 
-function updateState() {
-    updateDashboardState({
-        status: connectionStatus,
-        qr: currentQR,
-        expiresAt: qrExpiresAt,
-        pairingCode
-    });
+async function updateState() {
+    try {
+        await setDashboardState({
+            status: connectionStatus,
+            qr: currentQR,
+            expiresAt: qrExpiresAt,
+            pairingCode
+        });
+    } catch (error) {
+        console.error(
+            'Dashboard state update failed:',
+            error?.message || error
+        );
+    }
 }
 
 function clearQR() {
