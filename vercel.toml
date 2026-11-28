@@ -6,10 +6,10 @@ entrypoint = "Dockerfile"
 
 instances.iad1 = 1
 
-[services.scanty-dashboard]
+[services.dashboard]
 root = "."
 entrypoint = "dashboard.js"
 
-routes = [
-  { src = "/(.*)", dest = "/$1" }
-]
+[[rewrites]]
+source = "/(.*)"
+destination = { service = "dashboard" }
