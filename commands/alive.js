@@ -7,9 +7,14 @@ module.exports = {
 
     async execute({ reply }) {
         await reply(
-            '🤖 *SCANTY MD BOT is alive!*\n\n' +
-            '✅ WhatsApp connection active\n' +
-            '⚡ Command system running'
+            '╭━━━〔 🤖 SCANTY MD BOT 〕━━━╮\n' +
+            '│\n' +
+            '│  🟢 SYSTEM ONLINE\n' +
+            '│  ├─ WhatsApp: Connected\n' +
+            '│  ├─ Commands: Active\n' +
+            '│  └─ MongoDB: Connected\n' +
+            '│\n' +
+            '╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯'
         );
     }
 };
