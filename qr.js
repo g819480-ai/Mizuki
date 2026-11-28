@@ -16,7 +16,7 @@ let qrExpiryTimer = null;
 let qrGeneration = 0;
 let pairingInProgress = false;
 
-const QR_LIFETIME = 30000;
+const QR_LIFETIME = 60000;
 
 async function updateState() {
     try {
@@ -122,53 +122,71 @@ function startQrServer(conn) {
      * WhatsApp daemon, so pairing requests are exposed
      * through MongoDB-backed dashboard state.
      */
-    updateState();
+    
 
-    client.on('qr', async qr => {
-        if (!qr) {
-            await clearQR();
-            return;
+    
+        
+
+            
+            
+
+            
+            
+            
+            client.on('qr', async qr => {
+    if (!qr) {
+        await clearQR();
+        return;
+    }
+
+    const generation = ++qrGeneration;
+
+    try {
+        const image = await QRCode.toDataURL(qr, {
+            width: 400,
+            margin: 2,
+            errorCorrectionLevel: 'H'
+        });
+
+        if (generation !== qrGeneration) return;
+
+        if (qrExpiryTimer) {
+            clearTimeout(qrExpiryTimer);
         }
 
-        const generation = ++qrGeneration;
+        currentQR = image;
+        qrExpiresAt = Date.now() + QR_LIFETIME;
+        connectionStatus = 'Scan the QR code';
+        pairingCode = null;
 
-        try {
-            const image =
-                await QRCode.toDataURL(qr, {
-                    width: 400,
-                    margin: 2,
-                    errorCorrectionLevel: 'H'
-                });
+        await updateState();
 
-            if (generation !== qrGeneration) {
-                return;
+        console.log('Dashboard QR updated');
+
+        qrExpiryTimer = setTimeout(async () => {
+            if (generation !== qrGeneration) return;
+
+            currentQR = null;
+            qrExpiresAt = null;
+            qrExpiryTimer = null;
+
+            if (connectionStatus !== 'Connected') {
+                connectionStatus =
+                    'QR expired - waiting for a new QR code';
             }
-
-            if (qrExpiryTimer) {
-                clearTimeout(qrExpiryTimer);
-            }
-
-            currentQR = image;
-            qrExpiresAt =
-                Date.now() + QR_LIFETIME;
-
-            connectionStatus =
-                'Scan the QR code';
 
             await updateState();
 
-            console.log(
-                'Dashboard QR updated'
-            );
+            console.log('QR code expired');
+        }, QR_LIFETIME);
 
-            qrExpiryTimer =
-                setTimeout(async () => {
-
-                    if (
-                        generation !== qrGeneration
-                    ) {
-                        return;
-                    }
+    } catch (error) {
+        console.error(
+            'QR generation failed:',
+            error?.message || error
+        );
+    }
+});
 
                     currentQR = null;
                     qrExpiresAt = null;
