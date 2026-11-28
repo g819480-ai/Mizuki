@@ -3,7 +3,7 @@
 
 const http = require('http');
 const QRCode = require('qrcode');
-
+const { updateDashboardState } = require('./dashboard');
 let client = null;
 let currentQR = null;
 let qrExpiresAt = null;
