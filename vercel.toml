@@ -1,0 +1,7 @@
+#:schema https://openapi.vercel.sh/vercel.json
+
+[daemons.scanty-bot]
+root = "."
+entrypoint = "Dockerfile"
+
+instances.iad1 = 1
