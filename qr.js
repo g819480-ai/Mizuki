@@ -278,6 +278,12 @@ function startQrServer(conn) {
             currentQR = image;
             qrExpiresAt = Date.now() + QR_LIFETIME;
             connectionStatus = 'Scan the QR code';
+         updateDashboardState({
+    status: connectionStatus,
+    qr: currentQR,
+    expiresAt: qrExpiresAt,
+    pairingCode
+});
 
             qrExpiryTimer = setTimeout(() => {
                 if (generation !== qrGeneration) return;
