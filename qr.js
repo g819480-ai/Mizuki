@@ -1,7 +1,11 @@
 'use strict';
 
 const QRCode = require('qrcode');
-const { setDashboardState } = require('./dashboard-state');
+ const {
+    setDashboardState,
+    getPairingRequest,
+    updatePairingRequest
+} = require('./dashboard-state');
 
 let client = null;
 let currentQR = null;
@@ -199,7 +203,117 @@ function startQrServer(conn) {
             'Connecting to WhatsApp';
 
         await updateState();
+setInterval(async () => {
+    try {
+        const request =
+            await getPairingRequest();
 
+        if (!request) return;
+
+        if (request.status !== 'pending') {
+            return;
+        }
+
+        if (!request.phone) {
+            await updatePairingRequest(
+                request.id,
+                {
+                    status: 'failed',
+                    error: 'Phone number is missing'
+                }
+            );
+
+            return;
+        }
+
+        if (!client || !client.socket) {
+            return;
+        }
+
+        if (connectionStatus === 'Connected') {
+            await updatePairingRequest(
+                request.id,
+                {
+                    status: 'failed',
+                    error: 'WhatsApp is already connected'
+                }
+            );
+
+            return;
+        }
+
+        if (
+            client.authStorage?.state?.creds?.registered
+        ) {
+            await updatePairingRequest(
+                request.id,
+                {
+                    status: 'failed',
+                    error: 'This WhatsApp session is already registered'
+                }
+            );
+
+            return;
+        }
+
+        console.log(
+            'Processing dashboard pairing request...'
+        );
+
+        const code =
+            await client.requestPairingCode(
+                String(request.phone)
+            );
+
+        if (!code) {
+            throw new Error(
+                'WhatsApp did not return a pairing code'
+            );
+        }
+
+        pairingCode = String(code);
+
+        await updatePairingRequest(
+            request.id,
+            {
+                status: 'completed',
+                code: pairingCode
+            }
+        );
+
+        await updateState();
+
+        console.log(
+            'Dashboard pairing code generated successfully'
+        );
+
+    } catch (error) {
+        console.error(
+            'Dashboard pairing request failed:',
+            error?.message || error
+        );
+
+        try {
+            const request =
+                await getPairingRequest();
+
+            if (
+                request &&
+                request.status === 'pending'
+            ) {
+                await updatePairingRequest(
+                    request.id,
+                    {
+                        status: 'failed',
+                        error:
+                            error?.message ||
+                            'Pairing request failed'
+                    }
+                );
+            }
+        } catch (_) {}
+    }
+}, 2000);
         console.log(
             'SCANTY MD BOT connecting to WhatsApp...'
         );
